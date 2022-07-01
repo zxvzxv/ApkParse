@@ -42,26 +42,13 @@ class LocalFileHeader:
     # file name (variable size)
     # extra field (variable size)
 
-    header_signature = 0x504b0304
-
-    tag = None
-    version_need = None
-    bit_flag = None
-    compression_method = None
-    last_mod_time = None
-    last_mod_date = None
-    crc_32 = None
-    compressed_size = None
-    uncompressed_size = None
-    fname_len = None
-    extra_field_len = None
-
-    file_name = None
-    extra_field = None
-    file_data = None
-
-
     def __init__(self, fpin:bytes, offset:int) -> None:
+        # 下面三个属性应该都是字符串，
+        # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
+        self.file_name:bytes = None
+        self.extra_field:bytes = None
+        self.file_data:bytes = None
+
         self.tag = fpin[offset: offset + 4]
         if self.tag != FILE_HEADER_TAG:
             raise Exception("local file header error!!")
@@ -109,33 +96,13 @@ class CentralDirectory:
     # extra field (variable size)
     # file comment (variable size)
 
-    tag = None
-    version_made_by = None
-    version_need = None
-    bit_flag = None
-    compression_method = None
-    last_mod_time = None
-    last_mod_date = None
-    crc_32 = None
-    compressed_size = None
-    uncompressed_size = None
-    fname_len = None
-    extra_field_len = None
-    comment_len = None
-    disk_num_start = None
-    in_file_attr = None
-    ex_file_attr = None
-    local_header_off = None
-
-    # 下面三个属性应该都是字符串，
-    # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
-    file_name:bytes = None
-    extra_field:bytes = None
-    comment:bytes = None
-
-
-
     def __init__(self, fpin:bytes, offset:int) -> None:
+        # 下面三个属性应该都是字符串，
+        # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
+        self.file_name:bytes = None
+        self.extra_field:bytes = None
+        self.comment:bytes = None
+
         self.tag = fpin[offset: offset + 4]
         if self.tag != CENTDIR_TAG:
             raise Exception("central dir header error!!")
@@ -181,16 +148,6 @@ class EndOfCentralDirectory:
     # the starting disk number        4 bytes
     # .ZIP file comment length        2 bytes
     # .ZIP file comment       (variable size)
-    
-    tag = None
-    num_disk = None
-    num_disk_start = None
-    entries_num_this = None
-    entries_num_all = None
-    central_dir_size = None
-    central_dir_offset = None
-    comment_size = None
-    comment = None
 
     def __init__(self, fpin:bytes, offset:int) -> None:
         self.tag = fpin[offset: offset + 4]
@@ -279,23 +236,20 @@ def _get_decompressor(compress_type:int):
 
 
 class ZipFile:
-    fhs:Dict[bytes,LocalFileHeader] = {}    # file headers
-    cds:Dict[bytes,CentralDirectory] = {}    # central directories
-    ecd:EndOfCentralDirectory = None   # end of central directory
-
-    file_path:str = None
-    file_size:int = 0
-    file_data:bytes = None
 
     def __init__(self, fpath:str) -> None:
-        self.file_path = fpath
-        self.file_size = os.path.getsize(fpath)
+        self.fhs:Dict[bytes,LocalFileHeader] = {}    # file headers
+        self.cds:Dict[bytes,CentralDirectory] = {}    # central directories
+        self.ecd:EndOfCentralDirectory = None   # end of central directory
+
+        self.file_path:str = fpath
+        self.file_size:int = os.path.getsize(fpath)
         try:
             fpin = open(fpath, 'rb')
         except Exception as e:
             print(f'Can not read file: {fpath}')
             return
-        self.file_data = fpin.read()
+        self.file_data:bytes = fpin.read()
 
         # 获取zip尾部信息
         # max_comment_start = max(self.file_size - (1 << 16) - END_CENTDIR_SIZE, 0)
@@ -303,15 +257,22 @@ class ZipFile:
         fpin.seek(0)
         data = fpin.read()
 
-        ecd_start = data.find(END_CENTDIR_TAG)
-
+        
+        # 从后往前读取第一个长度满足条件的文件尾
         try:
+            end_len = 0
+            while(end_len < 22):
+                if end_len != 0:
+                    data = data[:-end_len]
+                ecd_start = data.rfind(END_CENTDIR_TAG)
+                end_len = len(data[ecd_start:])
+                
             self.ecd = EndOfCentralDirectory(data, ecd_start)
         except Exception as e:
             print(f'Not Zip File, ', e)
             return
 
-        # 获取文件记录
+        # 获取中心文件记录
         fpin.seek(self.ecd.central_dir_offset,0)
         data = fpin.read()
         cd_count = 0
@@ -326,6 +287,10 @@ class ZipFile:
         except Exception as e:
             print("Read central dir error !", e)
             return
+        
+        # 初始化只获取尾部和中心文件记录的数据（504b0506和504b0102），
+        # local file header通过central dir中指定的偏移，按需查找
+        # 因为local file header之间可以随意插入任何数据
         
 
     def get_file(self, file_name:bytes):
