@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 import struct
 from typing import Dict, List
@@ -19,7 +20,7 @@ FILE_HEADER_TAG = b"\x50\x4b\x03\x04"
 CENTDIR_TAG = b"\x50\x4b\x01\x02"
 
 
-# constants for Zip file compression methods
+# apk只支持Deflated和Stored，额外两个以防万一，好像后续会支持bzip
 ZIP_STORED = 0
 ZIP_DEFLATED = 8
 ZIP_BZIP2 = 12
@@ -42,17 +43,17 @@ class LocalFileHeader:
     # file name (variable size)
     # extra field (variable size)
 
-    def __init__(self, fpin:bytes, offset:int) -> None:
+    def __init__(self, buff:bytes, offset:int) -> None:
         # 下面三个属性应该都是字符串，
         # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
         self.file_name:bytes = None
         self.extra_field:bytes = None
         self.file_data:bytes = None
 
-        self.tag = fpin[offset: offset + 4]
+        self.tag = buff[offset: offset + 4]
         if self.tag != FILE_HEADER_TAG:
             raise Exception("local file header error!!")
-        data = fpin[offset + 4 : offset + FILE_HEADER_SIZE]
+        data = buff[offset + 4 : offset + FILE_HEADER_SIZE]
 
         (self.version_need,
         self.bit_flag,
@@ -69,9 +70,9 @@ class LocalFileHeader:
         extra_field_end = file_name_end + self.extra_field_len
         file_data_end = extra_field_end + self.compressed_size
 
-        self.file_name = fpin[offset + FILE_HEADER_SIZE: file_name_end]
-        self.extra_field = fpin[file_name_end : extra_field_end]
-        self.file_data = fpin[extra_field_end : file_data_end]
+        self.file_name = buff[offset + FILE_HEADER_SIZE: file_name_end]
+        self.extra_field = buff[file_name_end : extra_field_end]
+        self.file_data = buff[extra_field_end : file_data_end]
     
 
 class CentralDirectory:
@@ -96,17 +97,17 @@ class CentralDirectory:
     # extra field (variable size)
     # file comment (variable size)
 
-    def __init__(self, fpin:bytes, offset:int) -> None:
+    def __init__(self, buff:bytes, offset:int) -> None:
         # 下面三个属性应该都是字符串，
         # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
         self.file_name:bytes = None
         self.extra_field:bytes = None
         self.comment:bytes = None
 
-        self.tag = fpin[offset: offset + 4]
+        self.tag = buff[offset: offset + 4]
         if self.tag != CENTDIR_TAG:
             raise Exception("central dir header error!!")
-        data = fpin[offset + 4: offset + CENTDIR_SIZE]
+        data = buff[offset + 4: offset + CENTDIR_SIZE]
 
         (self.version_made_by,
         self.version_need,
@@ -128,9 +129,9 @@ class CentralDirectory:
         fname_end = offset + CENTDIR_SIZE + self.fname_len
         ex_field_end = fname_end + self.extra_field_len
         comment_end = ex_field_end + self.comment_len
-        self.file_name = fpin[offset + CENTDIR_SIZE: fname_end]
-        self.extra_field = fpin[fname_end: ex_field_end]
-        self.comment = fpin[ex_field_end: comment_end]
+        self.file_name = buff[offset + CENTDIR_SIZE: fname_end]
+        self.extra_field = buff[fname_end: ex_field_end]
+        self.comment = buff[ex_field_end: comment_end]
 
 
 class EndOfCentralDirectory:
@@ -149,13 +150,13 @@ class EndOfCentralDirectory:
     # .ZIP file comment length        2 bytes
     # .ZIP file comment       (variable size)
 
-    def __init__(self, fpin:bytes, offset:int) -> None:
-        self.tag = fpin[offset: offset + 4]
+    def __init__(self, buff:bytes, offset:int) -> None:
+        self.tag = buff[offset: offset + 4]
         if self.tag != END_CENTDIR_TAG:
             raise Exception("Not Zip File")
 
-        data = fpin[offset + 4: offset + END_CENTDIR_SIZE]
-        self.comment = fpin[offset + END_CENTDIR_SIZE: ]
+        data = buff[offset + 4: offset + END_CENTDIR_SIZE]
+        self.comment = buff[offset + END_CENTDIR_SIZE: ]
 
         (self.num_disk, 
         self.num_disk_start, 
@@ -252,11 +253,7 @@ class ZipFile:
         self.file_data:bytes = fpin.read()
 
         # 获取zip尾部信息
-        # max_comment_start = max(self.file_size - (1 << 16) - END_CENTDIR_SIZE, 0)
-        # fpin.seek(max_comment_start, 0)
-        fpin.seek(0)
-        data = fpin.read()
-
+        data = deepcopy(self.file_data)
         
         # 从后往前读取第一个长度满足条件的文件尾
         try:
@@ -273,8 +270,7 @@ class ZipFile:
             return
 
         # 获取中心文件记录
-        fpin.seek(self.ecd.central_dir_offset,0)
-        data = fpin.read()
+        data = self.file_data[self.ecd.central_dir_offset:]
         cd_count = 0
         offset = 0
         try:
