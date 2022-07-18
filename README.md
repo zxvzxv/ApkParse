@@ -2,7 +2,7 @@
 
 1. 获取manifest和resources里面的数据
 2. 获取apk签名
-3. 获取apk中指定文件
+3. [x] 获取apk中指定文件
 4. （待定）解析dex文件
 
 ## 解决的问题
