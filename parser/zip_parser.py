@@ -28,53 +28,6 @@ ZIP_LZMA = 14
 # Other ZIP compression methods not supported
 
 
-class LocalFileHeader:
-    # header signature                4 bytes (0x504b0304) 
-    # version needed to extract       2 bytes
-    # general purpose bit flag        2 bytes
-    # compression method              2 bytes
-    # last mod file time              2 bytes
-    # last mod file date              2 bytes
-    # crc-32                          4 bytes
-    # compressed size                 4 bytes
-    # uncompressed size               4 bytes
-    # file name length                2 bytes
-    # extra field length              2 bytes
-    # file name (variable size)
-    # extra field (variable size)
-
-    def __init__(self, buff:bytes, offset:int) -> None:
-        # 下面三个属性应该都是字符串，
-        # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
-        self.file_name:bytes = None
-        self.extra_field:bytes = None
-        self.file_data:bytes = None
-
-        self.tag = buff[offset: offset + 4]
-        if self.tag != FILE_HEADER_TAG:
-            raise Exception("local file header error!!")
-        data = buff[offset + 4 : offset + FILE_HEADER_SIZE]
-
-        (self.version_need,
-        self.bit_flag,
-        self.compression_method,
-        self.last_mod_time,
-        self.last_mod_date,
-        self.crc_32,
-        self.compressed_size,
-        self.uncompressed_size,
-        self.fname_len,
-        self.extra_field_len) = struct.unpack("<5H3I2H", data)
-
-        file_name_end = offset + FILE_HEADER_SIZE + self.fname_len
-        extra_field_end = file_name_end + self.extra_field_len
-        file_data_end = extra_field_end + self.compressed_size
-
-        self.file_name = buff[offset + FILE_HEADER_SIZE: file_name_end]
-        self.extra_field = buff[file_name_end : extra_field_end]
-        self.file_data = buff[extra_field_end : file_data_end]
-    
-
 class CentralDirectory:
     # central file header signature   4 bytes  (0x504b0102)
     # version made by                 2 bytes
@@ -133,6 +86,53 @@ class CentralDirectory:
         self.extra_field = buff[fname_end: ex_field_end]
         self.comment = buff[ex_field_end: comment_end]
 
+
+class LocalFileHeader:
+    # header signature                4 bytes (0x504b0304) 
+    # version needed to extract       2 bytes
+    # general purpose bit flag        2 bytes
+    # compression method              2 bytes
+    # last mod file time              2 bytes
+    # last mod file date              2 bytes
+    # crc-32                          4 bytes
+    # compressed size                 4 bytes
+    # uncompressed size               4 bytes
+    # file name length                2 bytes
+    # extra field length              2 bytes
+    # file name (variable size)
+    # extra field (variable size)
+
+    def __init__(self, buff:bytes, cd:CentralDirectory) -> None:
+        # 下面三个属性应该都是字符串，
+        # 但是防止恶意软件使用异常的字符进行对抗，还是用二进制保存
+        self.file_name:bytes = None
+        self.extra_field:bytes = None
+        self.file_data:bytes = None
+
+        self.tag = buff[cd.local_header_off: cd.local_header_off + 4]
+        if self.tag != FILE_HEADER_TAG:
+            raise Exception("local file header error!!")
+        data = buff[cd.local_header_off + 4 : cd.local_header_off + FILE_HEADER_SIZE]
+
+        (self.version_need,
+        self.bit_flag,
+        self.compression_method,
+        self.last_mod_time,
+        self.last_mod_date,
+        self.crc_32,
+        self.compressed_size,
+        self.uncompressed_size,
+        self.fname_len,
+        self.extra_field_len) = struct.unpack("<5H3I2H", data)
+
+        file_name_end = cd.local_header_off + FILE_HEADER_SIZE + self.fname_len
+        extra_field_end = file_name_end + cd.extra_field_len
+        file_data_end = extra_field_end + cd.compressed_size
+
+        self.file_name = buff[cd.local_header_off + FILE_HEADER_SIZE: file_name_end]
+        self.extra_field = buff[file_name_end : extra_field_end]
+        self.file_data = buff[extra_field_end : file_data_end]
+    
 
 class EndOfCentralDirectory:
     # end of central dir signature    4 bytes  (0x504b0506)
@@ -293,7 +293,7 @@ class ZipFile:
         '''通过文件名获取文件
         '''
         cd = self.cds[file_name]
-        lf = LocalFileHeader(self.file_data, cd.local_header_off)
+        lf = LocalFileHeader(self.file_data, cd)
 
         # 解压时用的central dir 中保存的解压方法
         return self._decompress(lf.file_data, cd.compression_method)
