@@ -126,7 +126,11 @@ class LocalFileHeader:
         self.extra_field_len) = struct.unpack("<5H3I2H", data)
 
         file_name_end = cd.local_header_off + FILE_HEADER_SIZE + self.fname_len
-        extra_field_end = file_name_end + cd.extra_field_len
+        
+        # 这里非常怪，extra field的长度使用的LocalFileHeader自己保存的长度，
+        # 而compressed_size使用的却是central dir中保存的长度，懒得翻源码了，
+        # 猜测可能是谷歌默认extra field就为0，根本就没读取这部分数据
+        extra_field_end = file_name_end + self.extra_field_len
         file_data_end = extra_field_end + cd.compressed_size
 
         self.file_name = buff[cd.local_header_off + FILE_HEADER_SIZE: file_name_end]
