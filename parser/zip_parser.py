@@ -129,9 +129,17 @@ class LocalFileHeader:
         
         # 这里非常怪，extra field的长度使用的LocalFileHeader自己保存的长度，
         # 而compressed_size使用的却是central dir中保存的长度，懒得翻源码了，
-        # 猜测可能是谷歌默认extra field就为0，根本就没读取这部分数据
+        # 也可能是谷歌默认extra field就为0，根本就没读取这部分数据,这里先按LFH保存的长度读取，出错了再说
         extra_field_end = file_name_end + self.extra_field_len
-        file_data_end = extra_field_end + cd.compressed_size
+
+        # 下面是安卓源码中计算解压前数据长度的方法，只要方法不等于deflated，就当作stored处理
+        # 如果是stored方式，则解压前的数据长度以uncompressed_size为准
+        # （这里感觉莫名其妙，为啥不统一用compressed_size去解压？故意搞复杂然后方便恶意app利用这点，使第三方解析工具解析报错？
+        # 都不说第三方了，谷歌官方的apk解析工具都报错。。只有android系统里面的源码是用的这种奇怪的判定方式）
+        if cd.compression_method != ZIP_DEFLATED:
+            file_data_end = extra_field_end + cd.uncompressed_size
+        else:
+            file_data_end = extra_field_end + cd.compressed_size
 
         self.file_name = buff[cd.local_header_off + FILE_HEADER_SIZE: file_name_end]
         self.extra_field = buff[file_name_end : extra_field_end]
@@ -304,7 +312,7 @@ class ZipFile:
 
 
     def _decompress(self, buff:bytes, method:int):
-        if method == 0:
+        if method != 8:
             return buff
         decompressor = _get_decompressor(method)
         
