@@ -30,12 +30,24 @@ class ApkFile:
             name_str = self.manifest._parse_name(item.name)
             if name_str in COMMON_KEYS:
                 self.common_k_v[name_str] = item.value.parse_data(self.manifest.string_pool)
-        
+    
+    def _set_basic_info(self):
+        self.app_name = ''
+        self.version = ''
+        self.package = self.get_package()
+        self.cert = ''
+        self.main_activity = ''
+        self.services = []
+        self.receivers = []
+        self.providers = []
+        self.activitise = []
 
-    #### 常用函数 ####
+
     def get_package(self):
         return self.common_k_v.get('package')
 
+    def get_version(self):
+        return self.common_k_v.get('versionName')
 
 
     def get_file(self, fname:bytes) -> bytes:
@@ -53,7 +65,7 @@ class ApkFile:
             out_fname = os.path.join(out_path.encode('utf-8'), fname)
             fdir = b"/".join(out_fname.split(b"/")[:-1])
             os.makedirs(fdir, exist_ok=True)
-            try:
+            try:    # TODO 文件夹和文件重名时，此文件会跳过，目前不知道怎么解决
                 with open(out_fname, 'wb') as fw:
                     fw.write(zip_file.get_file(fname))
             except:
@@ -76,8 +88,6 @@ class ApkFile:
         os.system(f"mv {os.path.join(tmp_path, 'tmp.zip')} {out_path}")
 
         shutil.rmtree(tmp_path)
-
-    #### 常用函数结束 ####
 
 
 
