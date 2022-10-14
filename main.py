@@ -64,8 +64,10 @@ class ApkFile:
         for fname in zip_file.cds.keys():
             out_fname = os.path.join(out_path.encode('utf-8'), fname)
             fdir = b"/".join(out_fname.split(b"/")[:-1])
+            if len(fdir) >= 255:    # 文件名长度限制，只能跳过
+                continue
             os.makedirs(fdir, exist_ok=True)
-            try:    # TODO 文件夹和文件重名时，此文件会跳过，目前不知道怎么解决
+            try:    # TODO 文件夹和文件重名时，会报错，所以用try跳过，目前不知道怎么解决
                 with open(out_fname, 'wb') as fw:
                     fw.write(zip_file.get_file(fname))
             except:
