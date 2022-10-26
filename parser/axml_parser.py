@@ -531,18 +531,22 @@ class ResTableEntry:
     FLAG_PUBLIC     = 0x0002    # 此entry为公有，可被其他库引用
     FLAG_WEAK       = 0x0004    # 此资源会被其他同类型且同名资源覆盖
 
-    def __init__(self, buff: bytes, key_sp:StringPool) -> None:
+    # 这里有个offset参数，表示从buff[offset:]开始解析数据，如果传入buff[xxx:yyy]，
+    # 内存中会额外复制一份切片后的buff传入此类，导致效率降低，所以直接传入完整的buff，这样python会自动复用同一个buff，
+    # 其他很多类是传入的buff[xxx:yyy]，但是那些类调用次数很少（个位数到百位数），这点内存复制耗时可忽略了，这个类调用次数的数量级在万级以上
+    # 不过后续可以考虑全部代码共用一个buff，这样耗时大概能缩短几十毫秒
+    def __init__(self, buff: bytes, key_sp:StringPool, offset:int) -> None:
         (self.size,
         self.flag,
-        self.key_str_id) = struct.unpack("<2HI", buff[:8])
+        self.key_str_id) = struct.unpack("<2HI", buff[offset: offset + 8])
 
         if (self.flag & self.FLAG_COMPLEX):     # 逆向apk一般用不到这个数据
             (self.ref_parant,
-            self.count) = struct.unpack("<2I", buff[8:16])
+            self.count) = struct.unpack("<2I", buff[offset + 8: offset + 16])
 
             self.value = {"map object":"is not yet parsed"}
         else:
-            self.value = ResValue(buff[8:16])
+            self.value = ResValue(buff[offset + 8: offset + 16])
 
         self.key_str = key_sp.get_string(self.key_str_id)
         
@@ -647,7 +651,7 @@ class ResTableType(ResChunkHeader):
                 count += 1
                 continue
 
-            tmp_entry = ResTableEntry(self.buff[self.entry_start + i:], key_sp)
+            tmp_entry = ResTableEntry(self.buff, key_sp, self.entry_start + i)
             self.entries[count] = tmp_entry
             count += 1
 
