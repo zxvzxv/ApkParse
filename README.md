@@ -1,7 +1,7 @@
 ## 主要功能
 
 - [x] 获取manifest里面的数据
-- [ ] 获取resources里面的数据
+- [x] 获取resources里面的数据
 - [ ] 获取apk签名
 - [x] 获取apk中指定文件
 - [ ] （待定）解析dex文件
