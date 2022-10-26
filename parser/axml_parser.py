@@ -70,7 +70,6 @@ RES_VALUE_SIZE                  = 0x08      # ResValue结构体的大小
 RES_TABLE_PACKAGE_HEADER_SIZE   = 0x120     # ResTablePackage的头部大小
 RES_TABLE_TYPE_SPEC_SIZE        = 0x10      # ResTypeSpec的基本大小
 RES_TABLE_TYPE_SIZE             = 0x14      # ResTableType的基本大小
-RES_TABLE_ENTRY_SIZE            = 0x08      # ResTableEntry大小
 ############ size end
 
 ############ android官方资源中的，各个types对应的数值，没用到，先放着
@@ -114,8 +113,21 @@ class ResChunkHeader:
                 raise Exception(f"Chunk length error, except {self.size}, got {len(buff)}")
 
             self.buff = buff
+            
+            # self.ptr 作为一个虚拟的指针，用于定位当前数据读取的位置，由于android的资源文件都是4字节对齐的，
+            # 读取完数据后需要有对齐操作，因此增加此指针和相关方法，方便数据读取
+            self.ptr = RES_CHUNK_HEADER_SIZE
         else:
             raise Exception(f"Chunk header length error: {len(buff)}")
+
+    def _ptr_add(self, offset) -> None:
+        '''
+        self.ptr 增加offset，同时保证4字节对齐
+        '''
+        self.ptr += offset
+        while self.ptr % 4 != 0:
+            self.ptr += 1
+    
 
 # string chunk header flag
 SORTED_FLAG = 1 << 0
@@ -399,6 +411,8 @@ class ResValue:
         self.data_type,
         self.data) = struct.unpack("<H2BI", buff)
 
+        self.data_bin:bytes = buff[4:]    # 二进制的data
+
         if self.data_type > 0x1f:
             pass # TODO add log: res value type error
     
@@ -409,26 +423,23 @@ class ResValue:
         self.string_pool = string_pool
 
         # Type of the data value.
-        decode_methods = {        
-            0x00:self._type_null,
-            0x01:self._type_reference,
-            0x02:self._type_tmp,
-            0x03:self._type_string,
-            0x04:self._type_tmp,
-            0x05:self._type_tmp,
-            0x06:self._type_tmp,
-            0x07:self._type_tmp,
-            0x08:self._type_tmp,
-            0x10:self._type_int_dec,
-            0x11:self._type_int_hex,
-            0x12:self._type_int_bool,
-            0x1c:self._type_tmp,
-            0x1c:self._type_tmp,
-            0x1d:self._type_tmp,
-            0x1e:self._type_tmp,
-            0x1f:self._type_tmp,
-            0x1f:self._type_tmp,
-            0x1f:self._type_tmp,
+        decode_methods = {       
+            0x00:self._type_null,       # TYPE_NULL
+            0x01:self._type_reference,  # TYPE_REFERENCE
+            0x02:self._type_tmp,        # TYPE_ATTRIBUTE
+            0x03:self._type_string,     # TYPE_STRING
+            0x04:self._type_float,      # TYPE_FLOAT
+            0x05:self._type_tmp,        # TYPE_DIMENSION
+            0x06:self._type_tmp,        # TYPE_FRACTION
+            0x07:self._type_tmp,        # TYPE_DYNAMIC_REFERENCE
+            0x08:self._type_tmp,        # TYPE_DYNAMIC_ATTRIBUTE
+            0x10:self._type_int_dec,    # TYPE_INT_DEC
+            0x11:self._type_int_hex,    # TYPE_INT_HEX
+            0x12:self._type_int_bool,   # TYPE_INT_BOOLEAN
+            0x1c:self._type_int_hex,    # TYPE_INT_COLOR_ARGB8  # 颜色没必要解析，就用十六进制表示
+            0x1d:self._type_int_hex,    # TYPE_INT_COLOR_RGB8
+            0x1e:self._type_int_hex,    # TYPE_INT_COLOR_ARGB4
+            0x1f:self._type_int_hex,    # TYPE_INT_COLOR_RGB4
         }
 
         try:
@@ -457,6 +468,8 @@ class ResValue:
     def _type_int_bool(self):
         return True if self.data else False
 
+    def _type_float(self):
+        return struct.unpack("<f", self.data_bin)
 
 
 
@@ -519,13 +532,20 @@ class ResTableEntry:
     FLAG_WEAK       = 0x0004    # 此资源会被其他同类型且同名资源覆盖
 
     def __init__(self, buff: bytes, key_sp:StringPool) -> None:
-        self.buff = buff
         (self.size,
         self.flag,
-        self.key_str_id) = struct.unpack("<2HI", self.buff[:8])
+        self.key_str_id) = struct.unpack("<2HI", buff[:8])
+
+        if (self.flag & self.FLAG_COMPLEX):     # 逆向apk一般用不到这个数据
+            (self.ref_parant,
+            self.count) = struct.unpack("<2I", buff[8:16])
+
+            self.value = {"map object":"is not yet parsed"}
+        else:
+            self.value = ResValue(buff[8:16])
 
         self.key_str = key_sp.get_string(self.key_str_id)
-
+        
 
 class ResTablePackage(ResChunkHeader):
     # 资源id形式如：0x7f010002
@@ -538,6 +558,10 @@ class ResTablePackage(ResChunkHeader):
     def __init__(self, buff: bytes, global_sp:StringPool) -> None:
         '''
         读取table package信息
+
+        args:
+            buff: 待分析的数据块
+            global_sp: 全局字符串池，表示此arsc文件的字符串池，部分属性的解析需要用到
         '''
         super().__init__(buff)
 
@@ -550,7 +574,7 @@ class ResTablePackage(ResChunkHeader):
         self.last_pub_type,
         self.key_str_offset,
         self.last_pub_key,
-        self.type_id_offset) = struct.unpack("<I128s5I", 
+        self.type_id_offset) = struct.unpack("<I256s5I", 
                             self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_PACKAGE_HEADER_SIZE])
         
         self.type_str_pool:StringPool = StringPool(self.buff[self.type_str_offset:])
@@ -574,13 +598,6 @@ class ResTablePackage(ResChunkHeader):
                 tmp_obj = ResTableType(self.buff[self.ptr:], global_sp, self.key_str_pool)
                 self.tp_types.setdefault(tmp_obj.id, []).append(tmp_obj)
                 self._ptr_add(tmp_obj.size)
-            
-            
-    
-    def _ptr_add(self, offset) -> None:
-        self.ptr += offset
-        while self.ptr % 4 != 0:
-            self.ptr += 1
 
 
 class ResTypeSpec(ResChunkHeader):
@@ -595,7 +612,7 @@ class ResTypeSpec(ResChunkHeader):
         self.res1,
         self.entry_count) = struct.unpack("<2BHI", self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_TYPE_SPEC_SIZE])
 
-        self.flags:Tuple[int] = struct.unpack(f"<{self.entry_count}I", self.buff[self.header_size: 4 * self.entry_count])
+        self.flags:Tuple[int] = struct.unpack(f"<{self.entry_count}I", self.buff[self.header_size: self.header_size + 4 * self.entry_count])
 
 
 class ResTableType(ResChunkHeader):
@@ -614,21 +631,25 @@ class ResTableType(ResChunkHeader):
         self.entry_start) = struct.unpack("<2BH2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_TYPE_SIZE])
 
         # TODO 完善config解析，config用于资源的语言适配，屏幕大小适配等，反编译一般用不到这个东西，暂不处理
-        self.config_count = struct.unpack("<I",self.buff[self.header_size: self.header_size + 4])[0]
-        self.config:bytes = self.buff[self.header_size: self.header_size + self.config_count]
+        # config是在ResChunkHeader头部里面的，只能用固定长度0x14获取到其位置了
+        self.config_count = struct.unpack("<I",self.buff[0x14: 0x18])[0]
+        self.config:bytes = self.buff[0x14: 0x14 + self.config_count]
 
-        entry_off_end = self.header_size + self.config_count + self.entry_count*4
+        entry_off_end = self.header_size + self.entry_count*4
         self.entry_offsets:Tuple[int] = struct.unpack(f"<{self.entry_count}I", 
-                                    self.buff[self.header_size + self.config_count: entry_off_end])
+                                    self.buff[self.header_size : entry_off_end])
         
-        # entries字典，{entry序号: [ResTableEntry,Res_value], ...}，方便根据序号查询对应的资源
-        self.entries:Dict[int, List[ResTableEntry | ResValue]] = {}
-
+        # entries字典，{entry序号: [ResTableEntry,Resvalue], ...}，方便根据序号查询对应的资源
+        self.entries:Dict[int, ResTableEntry] = {}
+        count = 0
         for i in self.entry_offsets:
-            tmp_entry = ResTableEntry(self.buff[self.entry_start + i: self.entry_start + i + RES_TABLE_ENTRY_SIZE], key_sp)
-            if tmp_entry.flag & ResTableEntry.FLAG_COMPLEX:
-                pass # TODO 处理map对象
-             
+            if i == 0xffffffff:
+                count += 1
+                continue
+
+            tmp_entry = ResTableEntry(self.buff[self.entry_start + i:], key_sp)
+            self.entries[count] = tmp_entry
+            count += 1
 
 
 #######################
@@ -641,7 +662,6 @@ class Axml(ResChunkHeader):
     def __init__(self, buff: bytes, pre_decode:bool = True) -> None:
         super().__init__(buff)
         self.pre_decode = pre_decode
-        self.ptr = self.header_size
 
         self.string_pool:StringPool = None
         self.res_map:ResMap = None
@@ -711,12 +731,6 @@ class Axml(ResChunkHeader):
                 print(f"undefined chunk type:{next_chunk_type}")
                 self._ptr_add(4)
                 continue
-        
-
-    def _ptr_add(self, offset) -> None:
-        self.ptr += offset
-        while self.ptr % 4 != 0:
-            self.ptr += 1
 
 
     def _create_node(self, element:StartElement) -> Element:
@@ -810,19 +824,11 @@ class Arsc(ResChunkHeader):
     def __init__(self, buff: bytes, pre_decode:bool = True) -> None:
         super().__init__(buff)
         self.pre_decode = pre_decode
-        self.ptr = self.header_size
-
-        self.package_count = struct.unpack("<I",self.buff[self.ptr: self.ptr + 4])
-        self.ptr += 4
+        self.package_count = struct.unpack("<I",self.buff[self.ptr: self.ptr + 4])[0]
+        self._ptr_add(4)
 
         self.string_pool:StringPool= None
-        self.res_map:ResMap = None
-        self.table_packages:List[ResTablePackage] = []
-        self.start_nss:List[StartNS] = []
-        self.end_nss:List[EndNS] = []
-        self.start_elements:List[StartElement] = []
-        self.end_elements:List[EndElement] = []
-        self.xml_nodes_dict:Dict[str,list] = {}
+        self.table_packages:Dict[int, ResTablePackage] = {}
 
         while (self.ptr < self.size):
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
@@ -831,14 +837,32 @@ class Arsc(ResChunkHeader):
                 self.string_pool = StringPool(self.buff[self.ptr:], pre_decode)
                 self._ptr_add(self.string_pool.size)
             elif next_chunk_type == RES_TABLE_PACKAGE_TYPE:
-                tmp_tp = ResTablePackage(self.buff[self.ptr:])
-                self.table_packages.append(tmp_tp)
+                tmp_tp = ResTablePackage(self.buff[self.ptr:], self.string_pool)
+                self.table_packages[tmp_tp.id] = tmp_tp
                 self._ptr_add(tmp_tp.size)
+            else:
+                # TODO add warning log: undefined chunk type:xxx
+                # print(f"undefined chunk type:{hex(next_chunk_type)}")
+                self._ptr_add(4)
+                continue
 
+    def get_resources(self, res_id:int) -> list:
+        '''
+        通过资源id获取资源的数据
 
+        return:
+            [(key,value), (key,value)...]
+        '''
+        res = []
+        num = res_id & 0xffff
+        type_num = (res_id >> 16) & 0xff
+        pkg_num = (res_id >> 24) & 0xff
+        # print(hex(pkg_num), hex(type_num), num)
+        pkg = self.table_packages.get(pkg_num)
+        for item in pkg.tp_types.get(type_num,[]):
+            entry = item.entries.get(num)
+            if entry:
+                res.append((entry.key_str, entry.value.parse_data(self.string_pool)))
 
-    def _ptr_add(self, offset) -> None:
-        self.ptr += offset
-        while self.ptr % 4 != 0:
-            self.ptr += 1
+        return res
 

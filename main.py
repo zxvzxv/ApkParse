@@ -3,7 +3,7 @@ import shutil
 
 
 from parser.zip_parser import ZipFile
-from parser.axml_parser import Axml
+from parser.axml_parser import Axml, Arsc
 
 
 # manifest中常用字段
@@ -23,18 +23,22 @@ class ApkFile:
         self.file_path = file_path
         self.zip = ZipFile(file_path)
         self.manifest = Axml(self.zip.get_file(b"AndroidManifest.xml"))
+        self.resources = Arsc(self.zip.get_file(b"resources.arsc"))
         
         self.common_k_v = {}    # 保存manifest中常用字段
         manifest_attrs = self.manifest.start_elements[0].attributes
         for item in manifest_attrs:
             name_str = self.manifest._parse_name(item.name)
-            if name_str in COMMON_KEYS:
+            if name_str in COMMON_KEYS:     # 只取指定数据，防止manifest恶意加入乱七八糟的东西
                 self.common_k_v[name_str] = item.value.parse_data(self.manifest.string_pool)
+        
+
+        self._set_basic_info()
     
     def _set_basic_info(self):
         self.app_name = ''
-        self.version = ''
-        self.package = self.get_package()
+        self.version = self.common_k_v.get('versionName')
+        self.package = self.common_k_v.get('package')
         self.cert = ''
         self.main_activity = ''
         self.services = []
@@ -42,19 +46,26 @@ class ApkFile:
         self.providers = []
         self.activitise = []
 
-
     def get_package(self):
-        return self.common_k_v.get('package')
+        return self.package
 
     def get_version(self):
-        return self.common_k_v.get('versionName')
-
+        return self.version
 
     def get_file(self, fname:bytes) -> bytes:
         '''
         通过文件名获取文件，文件名需要转换为bytes
         '''
         return self.zip.get_file(fname)
+
+    def get_manifest(self) -> str:
+        '''
+        获取xml格式的manifest文件
+        '''
+        return self.manifest.get_xml_str()
+
+    def get_resources(self, res_id:int):
+        return self.resources.get_resources(res_id)
 
     def unzip(self, out_path):
         '''
@@ -96,5 +107,7 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
-    apk.re_zip('./tmp_apk', './ttt.apk')
-    print(apk.get_package())
+    # apk.re_zip('./tmp_apk', './ttt.apk')
+    # print(apk.get_package())
+    
+    print(apk.get_resources(0x7F050021))

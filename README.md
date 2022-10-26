@@ -18,3 +18,7 @@ python解析apk已经有现成的库`androguard`，但是此库很久没更新�
 后来尝试google官方的解析工具，结果还是无法正常解析某些恶意apk
 
 最终选择自己写解析程序，主要是zip，axml，arsc的解析，后续考虑增加dex解析工具
+
+## TODO
+
+dex解析，测试用apk：b00f2e7d4b20c42383587b205b51dff3ed2b7ec9
