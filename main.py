@@ -1,3 +1,4 @@
+import hashlib
 import os,sys
 import shutil
 
@@ -32,24 +33,58 @@ class ApkFile:
             if name_str in COMMON_KEYS:     # 只取指定数据，防止manifest恶意加入乱七八糟的东西
                 self.common_k_v[name_str] = item.value.parse_data(self.manifest.string_pool)
         
-
+        self.flag = 0   # 标记是否解析了基本数据
         self._set_basic_info()
-    
+
     def _set_basic_info(self):
-        self.app_name = ''
+        with open(self.file_path, 'rb') as fr:
+            self.sha1 = hashlib.sha1(fr.read()).hexdigest()
+        self.app_name = self.get_app_name()
         self.version = self.common_k_v.get('versionName')
         self.package = self.common_k_v.get('package')
-        self.cert = ''
-        self.main_activity = ''
+        self.cert = ''          # 完整的证书，包括subject和issuer
+        self.cert_name = ''     # subject的名称
+        self.cert_sha1 = ''     # 证书hash
+        self.main_activity = self.get_main_activity()
         self.services = []
         self.receivers = []
         self.providers = []
         self.activitise = []
+        self.flag = 1
 
-    def get_package(self):
+    def get_basic_info(self) -> list:
+        return [self.sha1, self.app_name, self.version, self.package, self.cert_name, self.cert_sha1, self.main_activity]
+
+    def get_app_name(self) -> str:
+        if self.flag:
+            ret = self.app_name
+        else:
+            # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
+            label = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}label")
+            ret = self.get_resources(int(label,base=16))[0][-1]
+
+
+        return ret
+
+    def get_main_activity(self) -> str:
+        if self.flag:
+            ret = self.main_activity
+        else:
+            # 先定位android.intent.action.MAIN，之后找上两级的element，确定element为activity则成功获取到结果
+            for item in self.manifest.node_ptr.iter("action"):
+                if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.action.MAIN":
+                    continue
+
+                target_element = item.getparent().getparent()
+                if target_element.tag == "activity":
+                    ret = target_element.get("{http://schemas.android.com/apk/res/android}name")
+
+        return ret
+
+    def get_package(self) -> str:
         return self.package
 
-    def get_version(self):
+    def get_version(self) -> str:
         return self.version
 
     def get_file(self, fname:bytes) -> bytes:
@@ -64,7 +99,12 @@ class ApkFile:
         '''
         return self.manifest.get_xml_str()
 
-    def get_resources(self, res_id:int):
+    def get_resources(self, res_id:int) -> list:
+        '''
+        输入资源id, 如 0x7f100010
+        return: 
+            [(key,value), (key,value)...]
+        '''
         return self.resources.get_resources(res_id)
 
     def unzip(self, out_path):
@@ -107,7 +147,8 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
+    print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
     # print(apk.get_package())
     
-    print(apk.get_resources(0x7F050021))
+    # print(apk.get_resources(0x7F050021))
