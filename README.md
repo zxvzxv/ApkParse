@@ -6,6 +6,31 @@
 - [x] 获取apk中指定文件
 - [ ] （待定）解析dex文件
 
+
+## 使用
+
+### 1 获取基本信息
+
+```python
+from main import ApkFile
+
+apk = ApkFile(sys.argv[1])  # 输入apk路径进行初始化
+
+apk.get_app_name()          # app名称
+apk.get_package()           # 包名
+apk.get_version()           # 版本
+apk.get_main_activity()     # main_activity
+
+apk.get_manifest()          # xml格式的manifest
+apk.get_file(file_name)     # 获取文件, 文件名为bytes格式，如b"AndroidManifest.xml"
+apk.get_resources(res_id)   # 获取资源，输入为资源id，如 0x7f100010
+
+apk.unzip(out)              # 解压apk到out目录
+apk.re_zip(tmp, out)        # 解压apk到tmp目录，然后重新zip压缩，最后输出名为out的文件，非重打包
+                            # 部分恶意apk直接用jeb等软件分析会报错，直接重压缩一遍就可以正常分析了
+
+```
+
 ## 解决的问题
 
 目前需要一个方便的自动化分析apk工具

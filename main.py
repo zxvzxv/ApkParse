@@ -40,8 +40,8 @@ class ApkFile:
         with open(self.file_path, 'rb') as fr:
             self.sha1 = hashlib.sha1(fr.read()).hexdigest()
         self.app_name = self.get_app_name()
-        self.version = self.common_k_v.get('versionName')
-        self.package = self.common_k_v.get('package')
+        self.version = self.common_k_v.get('versionName', '')
+        self.package = self.common_k_v.get('package', '')
         self.cert = ''          # 完整的证书，包括subject和issuer
         self.cert_name = ''     # subject的名称
         self.cert_sha1 = ''     # 证书hash
@@ -82,10 +82,16 @@ class ApkFile:
         return ret
 
     def get_package(self) -> str:
-        return self.package
+        if self.flag:
+            return self.package
+        else:
+            return self.common_k_v.get('package', '')
 
     def get_version(self) -> str:
-        return self.version
+        if self.flag:
+            return self.version
+        else:
+            return self.common_k_v.get('versionName', '')
 
     def get_file(self, fname:bytes) -> bytes:
         '''
