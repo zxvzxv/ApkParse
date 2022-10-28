@@ -4,7 +4,7 @@ import shutil
 
 
 from parser.zip_parser import ZipFile
-from parser.axml_parser import Axml, Arsc
+from parser.res_parser import Axml, Arsc
 
 
 # manifest中常用字段

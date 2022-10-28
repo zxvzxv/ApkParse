@@ -4,7 +4,7 @@ SELF_PATH = os.path.dirname(os.path.realpath(__file__))
 ROOT_PATH = os.path.join(SELF_PATH, "../")
 sys.path.append(ROOT_PATH)
 from parser.zip_parser import ZipFile
-from parser.axml_parser import Axml, Arsc
+from parser.res_parser import Axml, Arsc
 
 def test_axml_basic():
     zip_file = ZipFile(os.path.join(SELF_PATH ,"apks/normal.apk"))
