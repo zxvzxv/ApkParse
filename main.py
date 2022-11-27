@@ -56,12 +56,15 @@ class ApkFile:
         return [self.sha1, self.app_name, self.version, self.package, self.cert_name, self.cert_sha1, self.main_activity]
 
     def get_app_name(self) -> str:
+        ret = ""
         if self.flag:
             ret = self.app_name
         else:
             # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
             label = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}label")
-            ret = self.get_resources(int(label,base=16))[0][-1]
+            # 有的apk这里会直接返回应用名称而不是资源ID
+            if label.startswith('0x'):
+                ret = self.get_resources(int(label,base=16))[0][-1]
 
 
         return ret
