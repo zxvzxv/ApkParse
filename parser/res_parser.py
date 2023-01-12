@@ -842,7 +842,8 @@ class Arsc(ResChunkHeader):
                 self._ptr_add(self.string_pool.size)
             elif next_chunk_type == RES_TABLE_PACKAGE_TYPE:
                 tmp_tp = ResTablePackage(self.buff[self.ptr:], self.string_pool)
-                self.table_packages[tmp_tp.id] = tmp_tp
+                if (not self.table_packages.get(tmp_tp.id, None)):  # 不覆盖之前获取到的包，以第一个获取到的为准
+                    self.table_packages[tmp_tp.id] = tmp_tp
                 self._ptr_add(tmp_tp.size)
             else:
                 # TODO add warning log: undefined chunk type:xxx

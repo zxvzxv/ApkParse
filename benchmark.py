@@ -55,6 +55,20 @@ def arsc(target):
 
     print(target, res)
 
+# @timer
+def basic(target):
+    if target == 1:
+        a = APK(test_apk)
+        pkg = a.get_package()
+        appname = a.get_app_name()
+        version = a.get_androidversion_name()
+        main_ac = a.get_main_activity()
+        res = [appname, version, pkg, '', '', main_ac]
+    else:
+        a = ApkFile(test_apk)
+        res = a.get_basic_info()
+
 if __name__ == "__main__":
     # arsc(1)
-    arsc(2)
+    # arsc(2)
+    basic(int(sys.argv[1]))
