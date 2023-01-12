@@ -2,9 +2,9 @@
 
 - [x] 获取manifest里面的数据
 - [x] 获取resources里面的数据
-- [ ] 获取apk签名
+- [ ] ~~获取apk签名~~ (暂时停止)
 - [x] 获取apk中指定文件
-- [ ] （待定）解析dex文件
+- [ ] ~~解析dex文件~~ (暂时停止)
 
 
 ## 使用
@@ -46,4 +46,6 @@ python解析apk已经有现成的库`androguard`，但是此库很久没更新�
 
 ## TODO
 
-dex解析，测试用apk：b00f2e7d4b20c42383587b205b51dff3ed2b7ec9
+~~dex解析，测试用apk：b00f2e7d4b20c42383587b205b51dff3ed2b7ec9~~
+
+证书解析：b3c578a48cb6eb673feb3b52095d4d199f08b034
