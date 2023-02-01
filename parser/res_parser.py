@@ -165,7 +165,7 @@ class StringPool(ResChunkHeader):
                         self.buff[self.header_size: self.header_size + 4*self.string_cnt]))
         if self.style_cnt > 0:
             self.style_offsets:List[int] = list(struct.unpack(f"<{self.style_cnt}I", 
-                        self.buff[self.header_size + 4*self.string_cnt: self.header_size + 4*self.string_cnt + 4*self.string_cnt]))
+                        self.buff[self.header_size + 4*self.string_cnt: self.header_size + 4*self.string_cnt + 4*self.style_cnt]))
         
         self.strings:Dict[int, str] = {}
         self.styles:Dict[int, str] = {}

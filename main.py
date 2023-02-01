@@ -25,7 +25,7 @@ class ApkFile:
         self.zip = ZipFile(file_path)
         self.manifest = Axml(self.zip.get_file(b"AndroidManifest.xml"))
         self.resources = Arsc(self.zip.get_file(b"resources.arsc"))
-        
+
         self.common_k_v = {}    # 保存manifest中常用字段
         manifest_attrs = self.manifest.start_elements[0].attributes
         for item in manifest_attrs:
@@ -77,10 +77,12 @@ class ApkFile:
             for item in self.manifest.node_ptr.iter("action"):
                 if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.action.MAIN":
                     continue
-
+                
                 target_element = item.getparent().getparent()
                 if target_element.tag == "activity":
                     ret = target_element.get("{http://schemas.android.com/apk/res/android}name")
+                    if not ret:
+                        ret = target_element.get("name")    #activity可以没有namespace
 
         return ret
 
@@ -156,6 +158,7 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
+    # print(apk.get_manifest())
     print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
     # print(apk.get_package())
