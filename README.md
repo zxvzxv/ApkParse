@@ -4,7 +4,7 @@
 - [x] 获取resources里面的数据
 - [ ] ~~获取apk签名~~ (暂时停止)
 - [x] 获取apk中指定文件
-- [ ] ~~解析dex文件~~ (暂时停止)
+- [ ] ~~解析dex文件~~，发现了一个非常完善的专门用于逆向的库：https://github.com/lief-project/LIEF， 包含了DEX的解析
 
 
 ## 使用
