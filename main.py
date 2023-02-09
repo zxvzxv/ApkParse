@@ -78,13 +78,41 @@ class ApkFile:
                 if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.action.MAIN":
                     continue
                 
+
+                # 发现一种对抗方法, 故意写入多个假的activity并赋予android.intent.action.MAIN，同时不设置category
+                # 就会使此程序获取mainactivity 出错
+                # 
+                # <activity name=".SplashActivity">
+                #     <intent-filter>
+                #         <action ns0:name="android.intent.action.MAIN" />
+                #         <category ns0:name="android.intent.category.LAUNCHER" />
+                #     </intent-filter>
+                # </activity>
+                # <activity name=".FakeActivity">
+                #     <intent-filter>
+                #         <action ns0:name="android.intent.action.MAIN" />
+                #     </intent-filter>
+                # </activity>
+                # 
+                category = item.getparent().iter("category")
+                try:
+                    category.__next__()     # ElementDepthFirstIterator为啥没有一个判空的方法？？
+                except:
+                    continue
+                for i in category:
+                    print(item.get("{http://schemas.android.com/apk/res/android}name"))
+                    if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.category.LAUNCHER":
+                        continue
+
+
                 target_element = item.getparent().getparent()
                 if target_element.tag == "activity":
                     ret = target_element.get("{http://schemas.android.com/apk/res/android}name")
                     if not ret:
                         ret = target_element.get("name")    #activity可以没有namespace
+                    return ret
 
-        return ret
+        return "not_found_main_activity!!"
 
     def get_package(self) -> str:
         if self.flag:
