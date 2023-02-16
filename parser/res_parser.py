@@ -593,7 +593,7 @@ class ResTablePackage(ResChunkHeader):
         self.ptr = self.key_str_offset + self.key_str_pool.size
         while (self.ptr < self.size):
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
-
+            # print(self.ptr, next_chunk_type)
             if next_chunk_type == RES_TABLE_TYPE_SPEC_TYPE:
                 tmp_obj = ResTypeSpec(self.buff[self.ptr:])
                 self.specs[tmp_obj.id] = tmp_obj
@@ -602,6 +602,9 @@ class ResTablePackage(ResChunkHeader):
                 tmp_obj = ResTableType(self.buff[self.ptr:], global_sp, self.key_str_pool)
                 self.tp_types.setdefault(tmp_obj.id, []).append(tmp_obj)
                 self._ptr_add(tmp_obj.size)
+            else:   # TODO 完善其他数据块的读取
+                h = ResChunkHeader(self.buff[self.ptr:])
+                self._ptr_add(h.size)
 
 
 class ResTypeSpec(ResChunkHeader):
