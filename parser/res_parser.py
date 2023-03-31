@@ -398,7 +398,8 @@ class AxmlAttribute:
         self.name,
         self.raw_value) = struct.unpack("<3I", buff[:12])
         
-        self.value:ResValue = ResValue(buff[12:])
+        # res_value 的结构体固定长8字节
+        self.value:ResValue = ResValue(buff[12:20])
 
 
 class ResValue:
@@ -798,8 +799,12 @@ class Axml(ResChunkHeader):
         #某些namespace字段可能取这个值，用于表示没有namespace
         if idx == 0xffffffff:
             return ""
-
-        name = self.string_pool.get_string(idx)
+        
+        try:    # 某些attributes会使用错误的字符串索引，这里直接跳过
+            name = self.string_pool.get_string(idx)
+        except:
+            return ""
+        
         if name == "":
             try:
                 name = self.res_map.res_id_str[idx]
