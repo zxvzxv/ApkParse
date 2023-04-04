@@ -25,6 +25,9 @@ apk.get_manifest()          # xml格式的manifest
 apk.get_file(file_name)     # 获取文件, 文件名为bytes格式，如b"AndroidManifest.xml"
 apk.get_resources(res_id)   # 获取资源，输入为资源id，如 0x7f100010
 
+apk.get_icon()              # 获取图标
+apk.get_file(apk.get_icon().encode())
+
 # 这两个解压功能，在处理某些比较大的apk可能会花很长时间，程序一直没动并不是卡死了
 apk.unzip(out)              # 解压apk到out目录
 apk.re_zip(tmp, out)        # 解压apk到tmp目录，然后重新zip压缩，最后输出名为out的文件，非重打包
