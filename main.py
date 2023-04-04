@@ -64,7 +64,7 @@ class ApkFile:
             label = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}label")
             # 有的apk这里会直接返回应用名称而不是资源ID
             if label.startswith('0x'):
-                ret = self.get_resources(int(label,base=16))[0][-1]
+                ret = self.resources.get_resources(int(label,base=16))[0][-1]
 
 
         return ret
@@ -100,7 +100,7 @@ class ApkFile:
                 except:
                     continue
                 for i in category:
-                    print(item.get("{http://schemas.android.com/apk/res/android}name"))
+                    # print(item.get("{http://schemas.android.com/apk/res/android}name"))
                     if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.category.LAUNCHER":
                         continue
 
@@ -113,6 +113,31 @@ class ApkFile:
                     return ret
 
         return "not_found_main_activity!!"
+
+    def get_icon(self) -> str:
+        """获取应用图标
+
+        Returns:
+            str: 图标在apk包中的路径
+        """
+        icon_ls = []
+
+        # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
+        icon_resid = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}icon")
+        
+        if icon_resid.startswith("0x"):
+            for k,v in self.resources.get_resources(int(icon_resid, base=16)):
+                if v.endswith(".png"):
+                    icon_ls.append(v)
+                elif v.endswith(".xml"):
+                    continue
+                else:
+                    # TODO add log: 可能是没见过的图片后缀，建议提issue
+                    continue
+        
+        if len(icon_ls) == 0:
+            return ""
+        return icon_ls[0]   # TODO 考虑加个get_icons()获取图标列表，按大小排序？
 
     def get_package(self) -> str:
         if self.flag:
@@ -187,7 +212,12 @@ if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
     # print(apk.get_manifest())
-    print(apk.get_basic_info())
+    print(apk.get_icon())
+
+    # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
+    #     fw.write(apk.get_file(apk.get_icon().encode()))
+
+    # print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
     # print(apk.get_package())
     
