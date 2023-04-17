@@ -132,7 +132,8 @@ class ApkFile:
                 elif v.endswith(".xml"):
                     continue
                 else:
-                    # TODO add log: 可能是没见过的图片后缀，建议提issue
+                    icon_ls.append(v)
+                    # 图片不需要后缀也行...
                     continue
         
         if len(icon_ls) == 0:
@@ -216,6 +217,8 @@ if __name__ == "__main__":
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
     #     fw.write(apk.get_file(apk.get_icon().encode()))
+        # fw.write(apk.get_file(b"AndroidManifest.xml"))
+        # fw.write(apk.get_file(b"resources.arsc"))
 
     # print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
