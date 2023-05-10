@@ -41,7 +41,11 @@ class ApkFile:
             self.sha1 = hashlib.sha1(fr.read()).hexdigest()
         self.app_name = self.get_app_name()
         self.version = self.common_k_v.get('versionName', '')
+        if self.version.startswith("0x"):   # 过滤掉返回值为资源ID的16进制值，例如：'0x7f0b0039'
+            self.version = self.resources.get_resources(int(self.version, base=16))[0][-1]
         self.package = self.common_k_v.get('package', '')
+        if self.package.startswith("0x"):   # 过滤掉返回值为资源ID的16进制值，例如：'0x7f0b0039'
+            self.package = self.resources.get_resources(int(self.package, base=16))[0][-1]
         self.cert = ''          # 完整的证书，包括subject和issuer
         self.cert_name = ''     # subject的名称
         self.cert_sha1 = ''     # 证书hash
