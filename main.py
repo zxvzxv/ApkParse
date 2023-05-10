@@ -32,7 +32,7 @@ class ApkFile:
             name_str = self.manifest._parse_name(item.name)
             if name_str in COMMON_KEYS:     # 只取指定数据，防止manifest恶意加入乱七八糟的东西
                 name_value = item.value.parse_data(self.manifest.string_pool)
-                if name_value.startswith("0x"):   # 过滤掉返回值为资源ID的16进制值，例如：'0x7f0b0039'
+                if isinstance(name_value, str) and name_value.startswith("0x"):   # 过滤掉返回值为资源ID的16进制值，例如：'0x7f0b0039'
                     self.common_k_v[name_str] = self.resources.get_resources(int(name_value, base=16))[0][-1]
                 else:
                     self.common_k_v[name_str] = name_value
