@@ -301,7 +301,7 @@ class ZipFile:
         # 因为local file header之间可以随意插入任何数据
         
 
-    def get_file(self, file_name:bytes):
+    def get_file(self, file_name:bytes) -> bytes:
         '''通过文件名获取文件
         '''
         cd = self.cds[file_name]
@@ -310,6 +310,12 @@ class ZipFile:
         # 解压时用的central dir 中保存的解压方法
         return self._decompress(lf.file_data, cd.compression_method)
 
+    def has_file(self, file_name:bytes) -> bool:
+        try:
+            self.cds[file_name]
+        except KeyError as e:
+            return False
+        return True
 
     def _decompress(self, buff:bytes, method:int):
         if method != 8:

@@ -54,6 +54,7 @@ class ApkFile:
         self.receivers = []
         self.providers = []
         self.activitise = []
+        self.icon_ls = []       # apk图标文件路径的列表
         self.flag = 1
 
     def get_basic_info(self) -> list:
@@ -118,13 +119,11 @@ class ApkFile:
 
         return "not_found_main_activity!!"
 
-    def get_icon(self) -> str:
-        """获取应用图标
-
-        Returns:
-            str: 图标在apk包中的路径
+    def get_icons(self) -> list[str]:
+        """获取全部图标路径, 格式为列表
         """
-        icon_ls = []
+        if len(self.icon_ls) != 0:
+            return self.icon_ls
 
         # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
         icon_resid = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}icon")
@@ -132,17 +131,34 @@ class ApkFile:
         if icon_resid.startswith("0x"):
             for k,v in self.resources.get_resources(int(icon_resid, base=16)):
                 if v.endswith(".png"):
-                    icon_ls.append(v)
+                    self.icon_ls.append(v)
                 elif v.endswith(".xml"):
                     continue
                 else:
-                    icon_ls.append(v)
+                    self.icon_ls.append(v)
                     # 图片不需要后缀也行...
                     continue
-        
-        if len(icon_ls) == 0:
-            return ""
-        return icon_ls[0]   # TODO 考虑加个get_icons()获取图标列表，按大小排序？
+
+        return self.icon_ls     # TODO. 增加大小排序
+
+    def get_icon(self) -> str:
+        """获取单个图标路径
+        """
+        for icon_name in self.get_icons():
+            if self.zip.has_file(icon_name.encode()):
+                return icon_name
+        return ""
+    
+    def get_icon_bytes(self) -> bytes:
+        """获取单个图标文件二进制数据
+        """
+        for icon_name in self.get_icons():
+            try:
+                return self.zip.get_file(icon_name.encode())
+            except KeyError:
+                continue
+        return b""
+
 
     def get_package(self) -> str:
         if self.flag:
@@ -220,7 +236,7 @@ if __name__ == "__main__":
     print(apk.get_icon())
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
-    #     fw.write(apk.get_file(apk.get_icon().encode()))
+    #     fw.write(apk.get_icon().encode())
         # fw.write(apk.get_file(b"AndroidManifest.xml"))
         # fw.write(apk.get_file(b"resources.arsc"))
 
