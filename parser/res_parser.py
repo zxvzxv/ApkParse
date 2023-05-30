@@ -875,6 +875,9 @@ class Arsc(ResChunkHeader):
         for item in pkg.tp_types.get(type_num,[]):
             entry = item.entries.get(num)
             if entry:
+                if type(entry.value) == dict:
+                    res.append((entry.key_str, entry.value))
+                    continue
                 res.append((entry.key_str, entry.value.parse_data(self.string_pool)))
 
         return res
