@@ -684,6 +684,8 @@ class Axml(ResChunkHeader):
         self.xml_nodes_dict:Dict[str,list] = {}
 
         self.node_ptr = None
+        first_tag = ""
+        count = 0
         while(self.ptr < self.size):
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
 
@@ -691,20 +693,22 @@ class Axml(ResChunkHeader):
             if next_chunk_type == RES_XML_START_ELEMENT_TYPE:
                 tmp = StartElement(self.buff[self.ptr:])
                 tmp_node = self._create_node(tmp)
-                if tmp_node.tag == "manifest":
+                if count == 0:  # first_node
                     self.node_ptr = tmp_node
+                    first_tag = tmp_node.tag
                 else:
                     self.node_ptr.append(tmp_node)   # 增加当前节点，并指向它
                     self.node_ptr = list(self.node_ptr)[-1]
                 self.start_elements.append(tmp)
                 self._ptr_add(tmp.size)
+                count += 1
 
             elif next_chunk_type == RES_XML_END_ELEMENT_TYPE:
                 tmp = EndElement(self.buff[self.ptr:])
                 tmp_name = self.string_pool.get_string(tmp.name)
                 if tmp_name != self.node_ptr.tag:
                     raise Exception("Parse xml error")
-                elif tmp_name == "manifest":    # 遇到manifest表示xml解析完成
+                elif tmp_name == first_tag:    # 遇到第一个node表示xml解析完成
                     pass
                 else:
                     self.node_ptr = self.node_ptr.getparent()

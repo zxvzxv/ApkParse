@@ -132,7 +132,7 @@ class ApkFile:
             for k,v in self.resources.get_resources(int(icon_resid, base=16)):
                 if v.endswith(".png"):
                     self.icon_ls.append(v)
-                elif v.endswith(".xml"):
+                elif v.endswith(".xml"):    # xml文件保存了图片的配置信息，图片可能是前后图层合并出来的，这里暂时无法处理
                     continue
                 else:
                     self.icon_ls.append(v)
@@ -233,15 +233,17 @@ if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
     # print(apk.get_manifest())
-    print(apk.get_icon())
+    # print(apk.get_icon())
+    # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
 
-    # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
-    #     fw.write(apk.get_icon().encode())
+    # with open("/mnt/c/Users/user/Downloads/t.webp",'wb') as fw:
+    #     fw.write(apk.get_file(b"res/hH.webp"))
         # fw.write(apk.get_file(b"AndroidManifest.xml"))
         # fw.write(apk.get_file(b"resources.arsc"))
 
     # print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
+    # apk.unzip("/mnt/c/Users/user/Downloads/ttt/")
     # print(apk.get_package())
     
-    # print(apk.get_resources(0x7F050021))
+    # print(apk.get_resources(0x7f100001))
