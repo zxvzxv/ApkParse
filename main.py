@@ -1,10 +1,18 @@
 import hashlib
 import os,sys
 import shutil
-
+import logging
 
 from parser.zip_parser import ZipFile
 from parser.res_parser import Axml, Arsc
+
+# log设置
+logging.basicConfig(
+    format='[%(levelname)1.1s][%(name)s][%(filename)s:%(lineno)d] %(message)s',
+    level=logging.INFO,
+)
+logger = logging.getLogger("apk_parse")
+# logger.disabled = True    # 关闭log
 
 
 # manifest中常用字段

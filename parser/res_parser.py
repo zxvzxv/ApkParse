@@ -2,9 +2,12 @@ import struct
 from typing import Dict, List, Tuple, Union
 from lxml import etree
 from xml.etree.ElementTree import Element   #这个用于开启代码提示
+import logging
 
 
 from utils.public_res_ids import PUBLIC_RES_ID
+
+logger = logging.getLogger("apk_parse")
 
 # https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/androidfw/include/androidfw/ResourceTypes.h
 
@@ -181,7 +184,8 @@ class StringPool(ResChunkHeader):
         通过字符串序号(id)获取字符串, 传入值必须大于0
         '''
         if num > self.string_cnt or num < 0:
-            raise Exception(f"AXML: Invalid String id number, {num}")
+            logger.warning(f"AXML: Invalid String id number, {hex(num)}")
+            return ""
         try:
             return self.strings[num]
         except:
@@ -706,8 +710,9 @@ class Axml(ResChunkHeader):
             elif next_chunk_type == RES_XML_END_ELEMENT_TYPE:
                 tmp = EndElement(self.buff[self.ptr:])
                 tmp_name = self.string_pool.get_string(tmp.name)
-                if tmp_name != self.node_ptr.tag:
-                    raise Exception("Parse xml error")
+                if tmp_name != self.node_ptr.tag:   # 一个node的结尾需要与开头名称匹配，如<activity>xxxx</activity>
+                    logger.error(f"Parse xml error. start_tag not equal to end_tag: {self.node_ptr.tag}=={tmp_name}")
+                    pass
                 elif tmp_name == first_tag:    # 遇到第一个node表示xml解析完成
                     pass
                 else:
@@ -739,8 +744,7 @@ class Axml(ResChunkHeader):
                 self._ptr_add(tmp.size)
 
             else:
-                # TODO add warning log: undefined chunk type:xxx
-                print(f"undefined chunk type:{next_chunk_type}")
+                logger.warning(f"undefined chunk type:{next_chunk_type}")
                 self._ptr_add(4)
                 continue
 
