@@ -707,14 +707,16 @@ class Axml(ResChunkHeader):
                 self._ptr_add(tmp.size)
                 count += 1
 
+            # 发现一个样本，manifest的最后一个end_element没有name，不确定是不是所有的end_element都能这样，先跳过这个特例
+            # 如果后续发现新样本，确定了所有end_element都可以没有name，则可以删掉下面“名称匹配”的if分支，遇到end_element
+            # 直接返回父节点
             elif next_chunk_type == RES_XML_END_ELEMENT_TYPE:
                 tmp = EndElement(self.buff[self.ptr:])
                 tmp_name = self.string_pool.get_string(tmp.name)
-                if tmp_name != self.node_ptr.tag:   # 一个node的结尾需要与开头名称匹配，如<activity>xxxx</activity>
-                    logger.error(f"Parse xml error. start_tag not equal to end_tag: {self.node_ptr.tag}=={tmp_name}")
+                if tmp_name == first_tag or self.node_ptr.tag == first_tag:    # 遇到第一个node表示xml解析完成
                     pass
-                elif tmp_name == first_tag:    # 遇到第一个node表示xml解析完成
-                    pass
+                elif tmp_name != self.node_ptr.tag:   # 一个node的结尾需要与开头名称匹配，如<activity>xxxx</activity>
+                    raise Exception(f"Parse xml error. start_tag not equal to end_tag: {self.node_ptr.tag}=={tmp_name}")
                 else:
                     self.node_ptr = self.node_ptr.getparent()
                 self.end_elements.append(tmp)
