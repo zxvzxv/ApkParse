@@ -78,7 +78,8 @@ class ApkFile:
             # 有的apk这里会直接返回应用名称而不是资源ID
             if label.startswith('0x'):
                 ret = self.resources.get_resources(int(label,base=16))[0][-1]
-
+            else:
+                ret = label
 
         return ret
 
@@ -241,17 +242,18 @@ if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
     # print(apk.get_manifest())
+    print(apk.get_app_name())
     # print(apk.get_icon())
     # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
 
-    # with open("/mnt/c/Users/user/Downloads/t.webp",'wb') as fw:
-    #     fw.write(apk.get_file(b"res/hH.webp"))
+    # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
+    #     fw.write(apk.get_icon_bytes())
         # fw.write(apk.get_file(b"AndroidManifest.xml"))
         # fw.write(apk.get_file(b"resources.arsc"))
 
     # print(apk.get_basic_info())
     # apk.re_zip('./tmp_apk', './ttt.apk')
     # apk.unzip("/mnt/c/Users/user/Downloads/ttt/")
-    # print(apk.get_package())
+    # print(apk.get_app_name())
     
     # print(apk.get_resources(0x7f100001))
