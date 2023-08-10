@@ -131,6 +131,13 @@ class ResChunkHeader:
         while self.ptr % 4 != 0:
             self.ptr += 1
     
+    def _ptr_reset(self, offset) -> None:
+        '''
+        self.ptr 重置位置，同时保证4字节对齐
+        '''
+        self.ptr = offset
+        while self.ptr % 4 != 0:
+            self.ptr += 1
 
 # string chunk header flag
 SORTED_FLAG = 1 << 0
@@ -848,6 +855,8 @@ class Arsc(ResChunkHeader):
         self.pre_decode = pre_decode
         self.package_count = struct.unpack("<I",self.buff[self.ptr: self.ptr + 4])[0]
         self._ptr_add(4)
+        # 重置ptr位置，因为部分apk的资源文件头部可能会添加自定义的额外数据
+        self._ptr_reset(self.header_size)
 
         self.string_pool:StringPool= None
         self.table_packages:Dict[int, ResTablePackage] = {}
