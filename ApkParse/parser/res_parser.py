@@ -5,7 +5,7 @@ from xml.etree.ElementTree import Element   #这个用于开启代码提示
 import logging
 
 
-from utils.public_res_ids import PUBLIC_RES_ID
+from ApkParse.utils.public_res_ids import PUBLIC_RES_ID
 
 logger = logging.getLogger("apk_parse")
 

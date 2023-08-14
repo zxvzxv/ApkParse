@@ -3,8 +3,8 @@ import os,sys
 import shutil
 import logging
 
-from parser.zip_parser import ZipFile
-from parser.res_parser import Axml, Arsc
+from ApkParse.parser.zip_parser import ZipFile
+from ApkParse.parser.res_parser import Axml, Arsc
 
 # log设置
 logging.basicConfig(
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     apk = ApkFile(sys.argv[1])
     # print(apk.get_manifest())
     print(apk.get_app_name())
-    # print(apk.get_icon())
+    print(apk.get_icon())
     # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
@@ -256,4 +256,4 @@ if __name__ == "__main__":
     # apk.unzip("/mnt/c/Users/user/Downloads/ttt/")
     # print(apk.get_app_name())
     
-    # print(apk.get_resources(0x7f100001))
+    # print(apk.get_resources(0x7F110055))

@@ -4,8 +4,8 @@ import datetime
 from types import FunctionType
 
 SELF_PATH = os.path.dirname(os.path.realpath(__file__))
-from parser.zip_parser import ZipFile
-from main import ApkFile
+from ApkParse.parser.zip_parser import ZipFile
+from ApkParse.main import ApkFile
 from androguard.core.bytecodes.apk import APK
 
 test_apk = os.path.join(SELF_PATH, "test/apks/app-debug.apk")
