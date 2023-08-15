@@ -9,10 +9,12 @@
 
 ## 使用
 
+### 0 安装
+`python3 setup.py install`
 ### 1 获取基本信息
 
 ```python
-from main import ApkFile
+from ApkParse.main import ApkFile
 
 apk = ApkFile(sys.argv[1])  # 输入apk路径进行初始化
 
