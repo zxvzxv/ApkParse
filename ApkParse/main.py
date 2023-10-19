@@ -2,6 +2,7 @@ import hashlib
 import os,sys
 import shutil
 import logging
+from typing import List
 
 from ApkParse.parser.zip_parser import ZipFile
 from ApkParse.parser.res_parser import Axml, Arsc
@@ -128,7 +129,7 @@ class ApkFile:
 
         return "not_found_main_activity!!"
 
-    def get_icons(self) -> list[str]:
+    def get_icons(self) -> List[str]:
         """获取全部图标路径, 格式为列表
         """
         if len(self.icon_ls) != 0:
