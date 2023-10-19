@@ -704,6 +704,9 @@ class Axml(ResChunkHeader):
             if next_chunk_type == RES_XML_START_ELEMENT_TYPE:
                 tmp = StartElement(self.buff[self.ptr:])
                 tmp_node = self._create_node(tmp)
+                if tmp_node == None:
+                    self._ptr_add(tmp.size)
+                    continue
                 if count == 0:  # first_node
                     self.node_ptr = tmp_node
                     first_tag = tmp_node.tag
@@ -758,7 +761,7 @@ class Axml(ResChunkHeader):
                 continue
 
 
-    def _create_node(self, element:StartElement) -> Element:
+    def _create_node(self, element:StartElement) -> Union[Element,None]:
         '''
         使用StartElement实例创建xml node
         '''
@@ -775,15 +778,19 @@ class Axml(ResChunkHeader):
         
         # 有apk会故意加入错误字符，导致无法解析成标准xml，只要app没有使用此字符串，则可以正常安装
         # 这里如果遇到这种对抗，就插入一个空的node
+        # 如果tag name被插入错误字符，则直接返回None，错误的tag 并没有实际作用，只是妨碍逆向
+        tag_name = self.string_pool.get_string(element.name)
+        if tag_name == "":
+            return None
         try:
             node:Element = etree.Element(
-                self.string_pool.get_string(element.name),
+                tag_name,
                 attrib=attr_dict,
                 nsmap=None
             )
         except:
             node:Element = etree.Element(
-                self.string_pool.get_string(element.name),
+                tag_name,
                 attrib={"this":"is_not_a_valid_unicode_str"},
                 nsmap=None
             )
