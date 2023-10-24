@@ -219,7 +219,7 @@ class ApkFile:
             except:
                 pass
     
-    def re_zip(self, tmp_path:str, out_path:str):
+    def re_zip(self, tmp_path:str, out_path:str, quiet:bool=True):
         '''
         解压apk文件，再重新zip打包，某些apk可能有较复杂对抗，
         无法直接用jeb等工具打开，可以用此方法重打包后再用jeb等其他分析工具分析
@@ -231,7 +231,10 @@ class ApkFile:
         '''
 
         self.unzip(tmp_path)
-        os.system(f"cd {tmp_path} && zip -r ./tmp.zip ./*")
+        if quiet:
+            os.system(f"cd {tmp_path} && zip -rq ./tmp.zip ./*")
+        else:
+            os.system(f"cd {tmp_path} && zip -r ./tmp.zip ./*")
         
         os.system(f"mv {os.path.join(tmp_path, 'tmp.zip')} {out_path}")
 
@@ -242,9 +245,9 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
-    # print(apk.get_manifest())
-    print(apk.get_app_name())
-    print(apk.get_icon())
+    print(apk.get_manifest())
+    # print(apk.get_app_name())
+    # print(apk.get_icon())
     # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
