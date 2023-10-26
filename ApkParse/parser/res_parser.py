@@ -256,6 +256,9 @@ class StringPool(ResChunkHeader):
         offset += skip
 
         data_b = self.buff[offset: offset + encoded_bytes]
+        # TODO. 解码失败时，不要直接报错或者返回空，把解码出来的unicode代号拼在一起，再次尝试u16be解码
+        # 这样就不能用python自己的decode，需要自己写解码逻辑
+        # 示例sha1：4bf11f72edaf8e23055991e565baa86d1370dbd2，此apk的app_name
         data = data_b.decode("utf-8", "replace")
         return data
 
