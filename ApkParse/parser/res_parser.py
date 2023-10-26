@@ -156,7 +156,7 @@ class StringPool(ResChunkHeader):
         super().__init__(buff)
         if self.header_size != STRING_POOL_HEADER_SIZE:
             # raise Exception("AXML: String pool header length error")
-            # TODO add log
+            logger.error("AXML: String pool header length error")
             pass
         
         header_buff = self.buff[RES_CHUNK_HEADER_SIZE: STRING_POOL_HEADER_SIZE]
@@ -167,6 +167,7 @@ class StringPool(ResChunkHeader):
         self.string_offset,
         self.style_offset) = struct.unpack("<5I", header_buff)
         self.is_utf8 = ((self.flag & UTF8_FLAG) != 0)
+        logger.debug(f"StringPool: cnt--{self.string_cnt}, is utf-8? {self.is_utf8}")
 
         self.string_offsets:List[int] = []
         self.style_offsets:List[int] = []
@@ -229,11 +230,13 @@ class StringPool(ResChunkHeader):
             try:
                 return self._decode_utf8(index)
             except:
+                logger.warning("decode utf-8 string error")
                 return ""
         else:
             try:
                 return self._decode_utf16(index)
             except:
+                logger.warning("decode utf-16 string error")
                 return ""
 
     def _decode_utf8(self, offset:int) -> str:
@@ -253,7 +256,7 @@ class StringPool(ResChunkHeader):
         offset += skip
 
         data_b = self.buff[offset: offset + encoded_bytes]
-        data = data_b.decode("utf-8")
+        data = data_b.decode("utf-8", "replace")
         return data
 
     def _decode_utf16(self, offset:int) -> str:
@@ -426,7 +429,7 @@ class ResValue:
         self.data_bin:bytes = buff[4:]    # 二进制的data
 
         if self.data_type > 0x1f:
-            pass # TODO add log: res value type error
+            logger.error(f"res value type error,type:{self.data_type}") 
     
     def parse_data(self, string_pool:StringPool):
         '''
