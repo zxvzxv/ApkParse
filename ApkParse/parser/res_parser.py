@@ -687,7 +687,7 @@ class ResTableType(ResChunkHeader):
                 tmp_entry = ResTableEntry(self.buff, key_sp, self.entry_start + offsets)
                 self.entries[count] = tmp_entry
         elif self.flag == 2:
-            pass
+            raise Exception(f"ResTableType flag==2, please open a issue. I need a example to complete this part")
         else:
             raise Exception(f"ResTableType flag error:{self.flag}")
 
