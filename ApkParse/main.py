@@ -245,9 +245,10 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
-    print(apk.get_manifest())
-    # print(apk.get_app_name())
-    # print(apk.get_icon())
+    # print(apk.get_manifest())
+    print(apk.get_app_name())
+    # print(apk.resources.string_pool.get_string(1044))
+    print(apk.get_icon())
     # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
@@ -260,4 +261,4 @@ if __name__ == "__main__":
     # apk.unzip("/mnt/c/Users/user/Downloads/ttt/")
     # print(apk.get_app_name())
     
-    # print(apk.get_resources(0x7F110055))
+    # print(apk.get_resources(0x7f0e001b))

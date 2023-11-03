@@ -598,7 +598,8 @@ class ResTablePackage(ResChunkHeader):
         self.last_pub_key,
         self.type_id_offset) = struct.unpack("<I256s5I", 
                             self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_PACKAGE_HEADER_SIZE])
-        
+        logger.debug(f"ResTablePackage: id:{hex(self.id)},len:{hex(self.size)}")
+
         self.type_str_pool:StringPool = StringPool(self.buff[self.type_str_offset:])
         self.key_str_pool:StringPool = StringPool(self.buff[self.key_str_offset:])
 
@@ -622,6 +623,7 @@ class ResTablePackage(ResChunkHeader):
                 self._ptr_add(tmp_obj.size)
             else:   # TODO 完善其他数据块的读取
                 h = ResChunkHeader(self.buff[self.ptr:])
+                logger.debug(f"ResTablePackage: read unknow chunk:{h.res_type},size:{h.size}")
                 self._ptr_add(h.size)
 
 
@@ -637,7 +639,7 @@ class ResTypeSpec(ResChunkHeader):
         self.res1,
         self.entry_count) = struct.unpack("<2BHI", self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_TYPE_SPEC_SIZE])
 
-        self.flags:Tuple[int] = struct.unpack(f"<{self.entry_count}I", self.buff[self.header_size: self.header_size + 4 * self.entry_count])
+        self.flags:Tuple[int, ...] = struct.unpack(f"<{self.entry_count}I", self.buff[self.header_size: self.header_size + 4 * self.entry_count])
 
 
 class ResTableType(ResChunkHeader):
@@ -650,10 +652,11 @@ class ResTableType(ResChunkHeader):
         super().__init__(buff)
 
         (self.id,
-        self.res0,
+        self.flag,
         self.res1,
         self.entry_count,
         self.entry_start) = struct.unpack("<2BH2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_TABLE_TYPE_SIZE])
+        logger.debug(f"ResTableType: id:{self.id},size:{self.size},flag:{self.flag}")
 
         # TODO 完善config解析，config用于资源的语言适配，屏幕大小适配等，反编译一般用不到这个东西，暂不处理
         # config是在ResChunkHeader头部里面的，只能用固定长度0x14获取到其位置了
@@ -661,20 +664,32 @@ class ResTableType(ResChunkHeader):
         self.config:bytes = self.buff[0x14: 0x14 + self.config_count]
 
         entry_off_end = self.header_size + self.entry_count*4
-        self.entry_offsets:Tuple[int] = struct.unpack(f"<{self.entry_count}I", 
+        self.entry_offsets:Tuple[int, ...] = struct.unpack(f"<{self.entry_count}I", 
                                     self.buff[self.header_size : entry_off_end])
         
         # entries字典，{entry序号: [ResTableEntry,Resvalue], ...}，方便根据序号查询对应的资源
         self.entries:Dict[int, ResTableEntry] = {}
-        count = 0
-        for i in self.entry_offsets:
-            if i == 0xffffffff:
+        # entry的编码方式有区别，参考ResourceTypes.h里面的ResTable_type.flags
+        if self.flag == 0:
+            count = 0
+            for i in self.entry_offsets:
+                if i == 0xffffffff:
+                    count += 1
+                    continue
+                # logger.debug(f"ResTableEntry: count:{count}")
+                tmp_entry = ResTableEntry(self.buff, key_sp, self.entry_start + i)
+                self.entries[count] = tmp_entry
                 count += 1
-                continue
-
-            tmp_entry = ResTableEntry(self.buff, key_sp, self.entry_start + i)
-            self.entries[count] = tmp_entry
-            count += 1
+        elif self.flag == 1:
+            for sparse_entry in self.entry_offsets:
+                count = sparse_entry & 0xff
+                offsets = (sparse_entry >> 16) * 4
+                tmp_entry = ResTableEntry(self.buff, key_sp, self.entry_start + offsets)
+                self.entries[count] = tmp_entry
+        elif self.flag == 2:
+            pass
+        else:
+            raise Exception(f"ResTableType flag error:{self.flag}")
 
 
 #######################
