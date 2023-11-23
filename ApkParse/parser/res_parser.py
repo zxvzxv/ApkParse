@@ -350,7 +350,7 @@ class EndNS(ResChunkHeader):
         super().__init__(buff)
 
         if self.size != START_NAMESPACE_SIZE:
-            pass    # TODO add log: "EndNamespace size is not equal to 0x18"
+            logger.warning(f"EndNamespace size is not equal to 0x18, size={self.size}") 
 
         (self.line_num,
         self.comment) = struct.unpack("<2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_CHUNK_HEADER_SIZE + 8])
@@ -774,7 +774,11 @@ class Axml(ResChunkHeader):
             elif next_chunk_type == RES_XML_END_NAMESPACE_TYPE:
                 tmp = EndNS(self.buff[self.ptr:])
                 self.end_nss.append(tmp)
-                self._ptr_add(tmp.size)
+                if tmp.size <= START_NAMESPACE_SIZE:
+                    self._ptr_add(START_NAMESPACE_SIZE)
+                else:
+                    # 理论上可以自己添加额外数据
+                    self._ptr_add(tmp.size)
 
             else:
                 logger.warning(f"undefined chunk type:{next_chunk_type}")
