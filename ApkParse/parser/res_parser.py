@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple, Union
 from lxml import etree
 from xml.etree.ElementTree import Element   #这个用于开启代码提示
 import logging
-
+from memory_profiler import profile
 
 from ApkParse.utils.public_res_ids import PUBLIC_RES_ID
 
@@ -103,23 +103,23 @@ RES_TYPES = {
 
 class ResChunkHeader:
 
-    def __init__(self, buff:bytes) -> None:
+    def __init__(self, buff:bytes, offset:int=0) -> None:
         '''
         读取资源头 (8 bytes)
         '''
-        if len(buff) >= RES_CHUNK_HEADER_SIZE:
+        if len(buff) - offset >= RES_CHUNK_HEADER_SIZE:
             (self.res_type,
             self.header_size,
-            self.size) = struct.unpack("<HHI", buff[:RES_CHUNK_HEADER_SIZE])
+            self.size) = struct.unpack("<HHI", buff[offset: offset + RES_CHUNK_HEADER_SIZE])
 
-            if len(buff) < self.size:
+            if len(buff) - offset < self.size:
                 raise Exception(f"Chunk length error, except {self.size}, got {len(buff)}")
 
             self.buff = buff
             
             # self.ptr 作为一个虚拟的指针，用于定位当前数据读取的位置，由于android的资源文件都是4字节对齐的，
             # 读取完数据后需要有对齐操作，因此增加此指针和相关方法，方便数据读取
-            self.ptr = RES_CHUNK_HEADER_SIZE
+            self.ptr = offset + RES_CHUNK_HEADER_SIZE
         else:
             raise Exception(f"Chunk header length error: {len(buff)}")
 
@@ -360,11 +360,11 @@ class EndNS(ResChunkHeader):
 
 
 class StartElement(ResChunkHeader):
-    def __init__(self, buff: bytes) -> None:
-        super().__init__(buff)
+    def __init__(self, buff: bytes, offset: int) -> None:
+        super().__init__(buff, offset)
 
         (self.line_num,
-        self.comment) = struct.unpack("<2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_CHUNK_HEADER_SIZE + 8])
+        self.comment) = struct.unpack("<2I", self.buff[offset + RES_CHUNK_HEADER_SIZE: offset + RES_CHUNK_HEADER_SIZE + 8])
 
         (self.ns,
         self.name,
@@ -373,40 +373,40 @@ class StartElement(ResChunkHeader):
         self.attribute_count,
         self.id_index,
         self.class_index,
-        self.style_index) = struct.unpack("<2I6H", self.buff[self.header_size: self.header_size + RES_XML_TREE_ATTREXT_SIZE])
+        self.style_index) = struct.unpack("<2I6H", self.buff[offset + self.header_size: offset + self.header_size + RES_XML_TREE_ATTREXT_SIZE])
 
         self.attributes:List[AxmlAttribute] = []
 
         index = self.header_size + self.attribute_start
         for i in range(self.attribute_count):
-            tmp = AxmlAttribute(self.buff[index: index + self.attribute_size])
+            tmp = AxmlAttribute(self.buff[offset + index: offset + index + self.attribute_size])
             self.attributes.append(tmp)
             index += self.attribute_size
 
 
 class EndElement(ResChunkHeader):
-    def __init__(self, buff: bytes) -> None:
-        super().__init__(buff)
+    def __init__(self, buff: bytes, offset: int) -> None:
+        super().__init__(buff, offset)
 
         (self.line_num,
-        self.comment) = struct.unpack("<2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_CHUNK_HEADER_SIZE + 8])
+        self.comment) = struct.unpack("<2I", self.buff[offset + RES_CHUNK_HEADER_SIZE: offset + RES_CHUNK_HEADER_SIZE + 8])
 
         (self.ns,
-        self.name) = struct.unpack("<2I", self.buff[self.header_size: self.header_size + 8])
+        self.name) = struct.unpack("<2I", self.buff[offset + self.header_size: offset + self.header_size + 8])
 
 
 class CData(ResChunkHeader):
-    def __init__(self, buff: bytes) -> None:
-        super().__init__(buff)
+    def __init__(self, buff: bytes, offset: int) -> None:
+        super().__init__(buff, offset)
         if len(buff) < CDATA_SIZE:
             pass # TODO add log
 
         (self.line_num,
-        self.comment) = struct.unpack("<2I", self.buff[RES_CHUNK_HEADER_SIZE: RES_CHUNK_HEADER_SIZE + 8])
+        self.comment) = struct.unpack("<2I", self.buff[offset + RES_CHUNK_HEADER_SIZE: offset + RES_CHUNK_HEADER_SIZE + 8])
 
-        self.raw_data = struct.unpack("<I", self.buff[RES_CHUNK_HEADER_SIZE + 8: RES_CHUNK_HEADER_SIZE + 12])
+        self.raw_data = struct.unpack("<I", self.buff[offset + RES_CHUNK_HEADER_SIZE + 8: offset + RES_CHUNK_HEADER_SIZE + 12])
 
-        self.typed_data = ResValue(self.buff[RES_CHUNK_HEADER_SIZE + 12: RES_CHUNK_HEADER_SIZE + 20])
+        self.typed_data = ResValue(self.buff[offset + RES_CHUNK_HEADER_SIZE + 12: offset + RES_CHUNK_HEADER_SIZE + 20])
 
 
 class AxmlAttribute:
@@ -699,6 +699,7 @@ class ResTableType(ResChunkHeader):
 #######################
 
 class Axml(ResChunkHeader):
+    
     def __init__(self, buff: bytes, pre_decode:bool = True) -> None:
         super().__init__(buff)
         self.pre_decode = pre_decode
@@ -722,8 +723,9 @@ class Axml(ResChunkHeader):
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
 
             # 出现频率高的类型往前放，提高效率
+            # 会大量重复出现的块尽可能减少切片操作，否则会爆内存
             if next_chunk_type == RES_XML_START_ELEMENT_TYPE:
-                tmp = StartElement(self.buff[self.ptr:])
+                tmp = StartElement(self.buff, self.ptr)
                 tmp_node = self._create_node(tmp)
                 if tmp_node == None:
                     self._ptr_add(tmp.size)
@@ -742,7 +744,7 @@ class Axml(ResChunkHeader):
             # 如果后续发现新样本，确定了所有end_element都可以没有name，则可以删掉下面“名称匹配”的if分支，遇到end_element
             # 直接返回父节点
             elif next_chunk_type == RES_XML_END_ELEMENT_TYPE:
-                tmp = EndElement(self.buff[self.ptr:])
+                tmp = EndElement(self.buff, self.ptr)
                 tmp_name = self.string_pool.get_string(tmp.name)
                 if tmp_name == first_tag or self.node_ptr.tag == first_tag:    # 遇到第一个node表示xml解析完成
                     pass
@@ -754,7 +756,7 @@ class Axml(ResChunkHeader):
                 self._ptr_add(tmp.size)
 
             elif next_chunk_type == RES_XML_CDATA_TYPE:
-                tmp = CData(self.buff[self.ptr:])
+                tmp = CData(self.buff, self.ptr)
                 self.cdatas.append(tmp)
                 self._ptr_add(tmp.size)
 
