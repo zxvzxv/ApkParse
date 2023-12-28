@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple, Union
 from lxml import etree
 from xml.etree.ElementTree import Element   #这个用于开启代码提示
 import logging
-from memory_profiler import profile
+# from memory_profiler import profile
 
 from ApkParse.utils.public_res_ids import PUBLIC_RES_ID
 
