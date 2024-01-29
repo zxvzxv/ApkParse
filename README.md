@@ -11,10 +11,13 @@
 
 ### 0 安装
 `python3 setup.py install`
-### 1 获取基本信息
+### 1 使用方法
 
 ```python
 from ApkParse.main import ApkFile
+
+log = logging.getLogger("apk_parse")
+log.setLevel(logging.ERROR) # 自定义logger等级，部分有对抗app的warning以下日志会很多
 
 apk = ApkFile(sys.argv[1])  # 输入apk路径进行初始化
 
