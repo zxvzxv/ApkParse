@@ -76,6 +76,16 @@ class ApkFile:
         else:
             # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
             label = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}label", "")
+            # 有的apk文件会抹掉命名空间 ，遍历application查找label字符串
+            if not label:
+                for child in self.manifest.node_ptr.find("application").iter():
+                    if "application" != child.tag.lower():
+                        continue
+                    for key,value in dict(child.attrib).items():
+                        if "label" in key.lower():
+                            label = value
+                            break
+
             # 有的apk这里会直接返回应用名称而不是资源ID
             if label.startswith('0x'):
                 ret = self.resources.get_resources(int(label,base=16))[0][-1]
