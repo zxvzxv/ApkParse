@@ -148,6 +148,8 @@ class ApkFile:
 
         # http://schemas.android.com/apk/res/android 这个命名空间是固定死的
         icon_resid = self.manifest.node_ptr.find("application").get("{http://schemas.android.com/apk/res/android}icon")
+        if not icon_resid:
+            icon_resid = self.manifest.node_ptr.find("application").get("icon")
         
         if icon_resid.startswith("0x"):
             for k,v in self.resources.get_resources(int(icon_resid, base=16)):
