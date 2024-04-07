@@ -87,10 +87,11 @@ class ApkFile:
                             break
 
             # 有的apk这里会直接返回应用名称而不是资源ID
-            if label.startswith('0x'):
-                ret = self.resources.get_resources(int(label,base=16))[0][-1]
-            else:
-                ret = label
+            num = 0 # 可能会出现死循环，保险起见加个限制（比如appname刚好等于资源id的值）
+            while (label.startswith('0x') and num < 10):
+                label = self.resources.get_resources(int(label,base=16))[0][-1]
+                num += 1
+            ret = label
 
         return ret
 
