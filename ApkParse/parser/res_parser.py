@@ -845,27 +845,29 @@ class Axml(ResChunkHeader):
         解析以id形式保存的name(如AxmlAttribute.name), 解析出对应的字符串返回
         也可以解析AxmlAttribute.ns
 
+        取值顺序, 前一个地方取不到name再到后面找: res_map -> string_pool
+
         如果解析出错, 返回空字符串
         '''
         #某些namespace字段可能取这个值，用于表示没有namespace
         if idx == 0xffffffff:
             return ""
-        
-        try:    # 某些attributes会使用错误的字符串索引，这里直接跳过
-            name = self.string_pool.get_string(idx)
 
-            # fix. name只包含可显示的字符，原本用utf decode报错来剔除异常字符串，但是\x7f以内的字节都不会报错，
-            # 发现一个apk用\x00填充字符串，导致没法正确解析到name。目前不确定其他字符是否能用于填充，这里先替换\x00临时解决
-            # 后续如果发现新的填充字节，则增加完整的剔除异常字符的方法，可能会增加一点程序耗时
-            # sha1: 9e4901fc09054a3834cc053f0b01cccd1d5b3a05
-            name = name.replace("\x00", "")
+        try:
+            name = self.res_map.res_id_str[idx]
+            name = name.split("_", 1)[-1]
         except:
-            return ""
-        
+            name = ""
+
         if name == "":
-            try:
-                name = self.res_map.res_id_str[idx]
-                name = name.split("_", 1)[-1]
+            try:    # 某些attributes会使用错误的字符串索引，这里直接跳过
+                name = self.string_pool.get_string(idx)
+
+                # fix. name只包含可显示的字符，原本用utf decode报错来剔除异常字符串，但是\x7f以内的字节都不会报错，
+                # 发现一个apk用\x00填充字符串，导致没法正确解析到name。目前不确定其他字符是否能用于填充，这里先替换\x00临时解决
+                # 后续如果发现新的填充字节，则增加完整的剔除异常字符的方法，可能会增加一点程序耗时
+                # sha1: 9e4901fc09054a3834cc053f0b01cccd1d5b3a05
+                name = name.replace("\x00", "")
             except:
                 name = ""
         
