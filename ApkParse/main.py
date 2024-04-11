@@ -153,6 +153,8 @@ class ApkFile:
         
         if icon_resid.startswith("0x"):
             for k,v in self.resources.get_resources(int(icon_resid, base=16)):
+                if not isinstance(v, str):
+                    continue # 忽略非字符串类型
                 if v.endswith(".png"):
                     self.icon_ls.append(v)
                 elif v.endswith(".xml"):    # xml文件保存了图片的配置信息，图片可能是前后图层合并出来的，这里暂时无法处理
