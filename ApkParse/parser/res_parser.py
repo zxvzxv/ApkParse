@@ -289,6 +289,8 @@ class StringPool(ResChunkHeader):
                 tmp_b += (data[data_ptr + 5] & 0x3F)
                 res.extend(tmp_b.to_bytes(5, "big"))
                 data_ptr += 6
+            else:
+                data_ptr += 1 # 如果以上条件都不满足，指针加一，否则会死循环
         return res
 
 
