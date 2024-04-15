@@ -184,8 +184,9 @@ class StringPool(ResChunkHeader):
         if pre_decode:
             for i in range(self.string_cnt):
                 self.strings[i] = self.string_at(self.string_offset + self.string_offsets[i])
-            for i in range(self.style_cnt):
-                self.styles[i] = self.string_at(self.style_offset + self.style_offsets[i])
+            # TODO. 完善style解析，但是这个东西逆向应该没啥价值
+            # for i in range(self.style_cnt):
+            #     self.styles[i] = self.string_at(self.style_offset + self.style_offsets[i])
 
     def get_string(self, num:int) -> str:
         '''
@@ -287,6 +288,8 @@ class StringPool(ResChunkHeader):
                 tmp_b += (data[data_ptr + 5] & 0x3F)
                 res.append(tmp_b)
                 data_ptr += 6
+            else:
+                raise Exception(f"decode utf-8 error, bytes:{data}")
         # print(res)
         # 处理内嵌的u16be编码字节
         final_res = ""
