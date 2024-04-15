@@ -239,13 +239,11 @@ class StringPool(ResChunkHeader):
                 logger.warning(f"decode utf-16 string error: {str(e)}")
                 return ""
 
-    def _my_utf8_decode(self, data:bytes) -> bytes:
+    def _my_utf8_decode(self, data:bytes) -> str:
         """
-        utf-8解码, 返回的是解析出来的字节流, 解析报错时, 返回已经解析完成的部分字节流
-
-        这个解析出来的数据可以看作是连在一起的unicode编号, 所以无法正常展示, 这个函数仅用于特殊用途
+        utf-8解码, 返回解析出来的字符串
         """
-        res = bytearray()
+        res = []
 
         data_ptr = 0
         while (data_ptr < len(data)):
@@ -257,20 +255,20 @@ class StringPool(ResChunkHeader):
             elif data[data_ptr] & 0xE0 == 0xC0:
                 tmp_b += (data[data_ptr] & 0x1F) << 6
                 tmp_b += (data[data_ptr + 1] & 0x3F)
-                res.extend(tmp_b.to_bytes(2, "big"))
+                res.append(tmp_b)
                 data_ptr += 2
             elif data[data_ptr] & 0xF0 == 0xE0:
                 tmp_b += (data[data_ptr] & 0xF) << 6*2
                 tmp_b += (data[data_ptr + 1] & 0x3F) << 6
                 tmp_b += (data[data_ptr + 2] & 0x3F)
-                res.extend(tmp_b.to_bytes(2, "big"))
+                res.append(tmp_b)
                 data_ptr += 3
             elif data[data_ptr] & 0xF8 == 0xF0:
                 tmp_b += (data[data_ptr] & 0x7) << 6*3
                 tmp_b += (data[data_ptr + 1] & 0x3F) << 6*2
                 tmp_b += (data[data_ptr + 2] & 0x3F) << 6
                 tmp_b += (data[data_ptr + 3] & 0x3F)
-                res.extend(tmp_b.to_bytes(3, "big"))
+                res.append(tmp_b)
                 data_ptr += 4
             elif data[data_ptr] & 0xFC == 0xF8:
                 tmp_b += (data[data_ptr] & 0x3) << 6*4
@@ -278,7 +276,7 @@ class StringPool(ResChunkHeader):
                 tmp_b += (data[data_ptr + 2] & 0x3F) << 6*2
                 tmp_b += (data[data_ptr + 3] & 0x3F) << 6
                 tmp_b += (data[data_ptr + 4] & 0x3F)
-                res.extend(tmp_b.to_bytes(4, "big"))
+                res.append(tmp_b)
                 data_ptr += 5
             elif data[data_ptr] & 0xFE == 0xFC:
                 tmp_b += (data[data_ptr] & 0x1) << 6*5
@@ -287,9 +285,29 @@ class StringPool(ResChunkHeader):
                 tmp_b += (data[data_ptr + 3] & 0x3F) << 6*2
                 tmp_b += (data[data_ptr + 4] & 0x3F) << 6
                 tmp_b += (data[data_ptr + 5] & 0x3F)
-                res.extend(tmp_b.to_bytes(5, "big"))
+                res.append(tmp_b)
                 data_ptr += 6
-        return res
+        # print(res)
+        # 处理内嵌的u16be编码字节
+        final_res = ""
+        index = 0
+        while (index < len(res)):
+            # 4字节u16be编码, 2+2存放, TODO. 也许会有4字节放一起的形式, 目前没见到先不写
+            if res[index] & 0xFC00 == 0xD800:
+                if res[index + 1] & 0xFC00 == 0xDC00:
+                    final_res += (res[index].to_bytes(2, "big") + res[index + 1].to_bytes(2, "big")).decode("utf-16be")
+                    index += 2
+                    continue
+            # 2字节u16be编码, 应该不存在这种情况, 保险起见还是写上
+            elif res[index] & 0xFCFC == 0xD8DC:
+                final_res += res[index].to_bytes(2, "big").decode("utf-16be")
+
+            # unicode编号, 直接转字符串
+            else:
+                final_res += chr(res[index])
+            index += 1
+
+        return final_res
 
 
     def _decode_utf8(self, offset:int) -> str:
@@ -313,8 +331,12 @@ class StringPool(ResChunkHeader):
         # 这样就不能用python自己的decode，需要自己写解码逻辑
         # 示例sha1：4bf11f72edaf8e23055991e565baa86d1370dbd2，此apk的app_name
         data = data_b.decode("utf-8", "replace")
-        if len(data) != 0 and ord(data[0]) == 65533:
-            data = self._my_utf8_decode(data_b).decode("utf-16be")
+        if len(data) != 0 and chr(65533) in data:
+            # try:
+            #     data = self._my_utf8_decode(data_b)
+            # except Exception as e:
+            #     logger.warning(f"decode utf-8 error: {str(e)}")
+            data = self._my_utf8_decode(data_b)
         return data
 
     def _decode_utf16(self, offset:int) -> str:
