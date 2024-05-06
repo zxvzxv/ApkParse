@@ -32,6 +32,8 @@ class ApkFile:
     def __init__(self, file_path) -> None:
         self.file_path = file_path
         self.zip = ZipFile(file_path)
+        if not self.zip.is_init:
+            raise Exception("Zip error!!")
         self.manifest = Axml(self.zip.get_file(b"AndroidManifest.xml"))
         self.resources = Arsc(self.zip.get_file(b"resources.arsc"))
 

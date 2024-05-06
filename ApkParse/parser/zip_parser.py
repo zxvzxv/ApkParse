@@ -8,8 +8,8 @@ import zlib
 import bz2
 import lzma
 
-import logging  # TODO 完善log配置
-# logging.basicConfig(format=)
+import logging
+logger = logging.getLogger("apk_parse")
 
 END_CENTDIR_SIZE = 22   # end of central directory minimum size
 CENTDIR_SIZE = 46       # central directory minimum size
@@ -249,8 +249,8 @@ def _get_decompressor(compress_type:int):
 
 
 class ZipFile:
-
     def __init__(self, fpath:str) -> None:
+        self.is_init = False    # 无严重错误时, 此值为True, 为False很可能因为文件不是apk
         self.fhs:Dict[bytes,LocalFileHeader] = {}    # file headers
         self.cds:Dict[bytes,CentralDirectory] = {}    # central directories
         self.ecd:EndOfCentralDirectory = None   # end of central directory
@@ -260,7 +260,7 @@ class ZipFile:
         try:
             fpin = open(fpath, 'rb')
         except Exception as e:
-            print(f'Can not read file: {fpath}')
+            logger.error(f'Can not read file: {fpath}')
             return
         self.file_data:bytes = fpin.read()
 
@@ -274,11 +274,13 @@ class ZipFile:
                 if end_len != 0:
                     data = data[:-end_len]
                 ecd_start = data.rfind(END_CENTDIR_TAG)
+                if ecd_start == -1:
+                    raise Exception("file incomplete.")
                 end_len = len(data[ecd_start:])
                 
             self.ecd = EndOfCentralDirectory(data, ecd_start)
         except Exception as e:
-            print(f'Not Zip File, ', e)
+            logger.error(f'Not Zip File, {e}')
             return
 
         # 获取中心文件记录
@@ -293,9 +295,11 @@ class ZipFile:
                         + tmp_cd.comment_len + CENTDIR_SIZE
                 self.cds[tmp_cd.file_name] = tmp_cd
         except Exception as e:
-            print("Read central dir error !", e)
+            logger.error(f"Read central dir error: {e}")
             return
         
+        # 基础解析完成
+        self.is_init = True
         # 初始化只获取尾部和中心文件记录的数据（504b0506和504b0102），
         # local file header通过central dir中指定的偏移，按需查找
         # 因为local file header之间可以随意插入任何数据
