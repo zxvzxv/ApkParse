@@ -10,7 +10,7 @@ from ApkParse.parser.res_parser import Axml, Arsc
 # log设置
 logging.basicConfig(
     format='[%(levelname)1.1s][%(name)s][%(filename)s:%(lineno)d] %(message)s',
-    level=logging.INFO,
+    level=logging.ERROR,
 )
 logger = logging.getLogger("apk_parse")
 # logger.disabled = True    # 关闭log
@@ -99,46 +99,25 @@ class ApkFile:
 
     def get_main_activity(self) -> str:
         if self.flag:
-            ret = self.main_activity
+            return self.main_activity
         else:
             # 先定位android.intent.action.MAIN，之后找上两级的element，确定element为activity则成功获取到结果
             for item in self.manifest.node_ptr.iter("action"):
                 if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.action.MAIN":
                     continue
-                
 
-                # 发现一种对抗方法, 故意写入多个假的activity并赋予android.intent.action.MAIN，同时不设置category
-                # 就会使此程序获取mainactivity 出错
-                # 
-                # <activity name=".SplashActivity">
-                #     <intent-filter>
-                #         <action ns0:name="android.intent.action.MAIN" />
-                #         <category ns0:name="android.intent.category.LAUNCHER" />
-                #     </intent-filter>
-                # </activity>
-                # <activity name=".FakeActivity">
-                #     <intent-filter>
-                #         <action ns0:name="android.intent.action.MAIN" />
-                #     </intent-filter>
-                # </activity>
-                # 
                 category = item.getparent().iter("category")
-                try:
-                    category.__next__()     # ElementDepthFirstIterator为啥没有一个判空的方法？？
-                except:
-                    continue
                 for i in category:
-                    # print(item.get("{http://schemas.android.com/apk/res/android}name"))
-                    if item.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.category.LAUNCHER":
+                    # print(i.get("{http://schemas.android.com/apk/res/android}name"))
+                    if i.get("{http://schemas.android.com/apk/res/android}name") != "android.intent.category.LAUNCHER":
                         continue
-
-
-                target_element = item.getparent().getparent()
-                if target_element.tag == "activity":
-                    ret = target_element.get("{http://schemas.android.com/apk/res/android}name")
-                    if not ret:
-                        ret = target_element.get("name")    #activity可以没有namespace
-                    return ret
+                    
+                    target_element = item.getparent().getparent()
+                    if target_element.tag == "activity":
+                        ret = target_element.get("{http://schemas.android.com/apk/res/android}name")
+                        if not ret:
+                            ret = target_element.get("name")    #activity可以没有namespace
+                        return ret
 
         return "not_found_main_activity!!"
 
@@ -262,11 +241,13 @@ class ApkFile:
 if __name__ == "__main__":
     # test
     apk = ApkFile(sys.argv[1])
+    
     # print(apk.get_manifest())
-    print(apk.get_app_name())
+    # print(apk.get_app_name())
     # print(apk.resources.string_pool.get_string(1044))
-    print(apk.get_icon())
-    # print(Axml(apk.get_file(b"res/wh1.xml")).get_xml_str())
+    # print(apk.get_icon())
+    print(apk.get_main_activity())
+    # print(apk.manifest.get_xml_str())
 
     # with open("/mnt/c/Users/user/Downloads/t.png",'wb') as fw:
     #     fw.write(apk.get_icon_bytes())
