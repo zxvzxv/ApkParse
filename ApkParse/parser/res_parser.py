@@ -800,6 +800,10 @@ class Axml(ResChunkHeader):
         first_tag = ""
         count = 0
         while(self.ptr < self.size):
+            # 命名空间关闭后，后面的是脏数据
+            if self.start_nss != [] and len(self.start_nss) == len(self.end_nss):
+                break
+
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
 
             # 出现频率高的类型往前放，提高效率
@@ -984,6 +988,10 @@ class Arsc(ResChunkHeader):
         self.table_packages:Dict[int, ResTablePackage] = {}
 
         while (self.ptr < self.size):
+            # 读取完指定数量的package后，后面的是脏数据
+            if self.package_count == len(self.table_packages):
+                break
+
             next_chunk_type = struct.unpack("<H", self.buff[self.ptr: self.ptr + 2])[0]
 
             if next_chunk_type == RES_STRING_POOL_TYPE:

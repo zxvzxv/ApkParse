@@ -10,7 +10,11 @@
 ## 使用
 
 ### 0 安装
-`python3 setup.py install`
+```
+git clone https://github.com/zxvzxv/ApkParse.git
+cd ApkParse
+pip3 install .
+```
 ### 1 使用方法
 
 ```python
