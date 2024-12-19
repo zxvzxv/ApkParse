@@ -865,7 +865,11 @@ class Axml(ResChunkHeader):
                 else:
                     # 理论上可以自己添加额外数据
                     self._ptr_add(tmp.size)
-
+            # 部分标准块没有解析，需要按长度跳过
+            elif (next_chunk_type >= RES_NULL_TYPE and next_chunk_type <= RES_XML_TYPE) \
+                or (next_chunk_type >= RES_XML_FIRST_CHUNK_TYPE and next_chunk_type <= RES_XML_LAST_CHUNK_TYPE):
+                logger.warning(f"unparsed chunk type:{next_chunk_type}")
+                self._ptr_add(ResChunkHeader(self.buff, self.ptr).size)
             else:
                 logger.warning(f"undefined chunk type:{next_chunk_type}")
                 self._ptr_add(4)
@@ -899,12 +903,13 @@ class Axml(ResChunkHeader):
                 attrib=attr_dict,
                 nsmap=None
             )
-        except:
+        except Exception as e:
             node:Element = etree.Element(
                 tag_name,
                 attrib={"this":"is_not_a_valid_unicode_str"},
                 nsmap=None
             )
+            logger.warning("_create_node error:" + str(e))
         return node
 
 
